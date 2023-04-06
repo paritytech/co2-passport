@@ -1,18 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[ink::contract]
-mod ink_project_template {
+mod co2_passport {
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
-    pub struct InkProjectTemplate {
+    pub struct CO2Passport {
         /// Stores a single `bool` value on the storage.
         value: bool,
     }
 
-    impl InkProjectTemplate {
+    impl CO2Passport {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(init_value: bool) -> Self {
@@ -59,17 +59,17 @@ mod ink_project_template {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let ink_project_template = InkProjectTemplate::default();
-            assert_eq!(ink_project_template.get(), false);
+            let co2_passport = CO2Passport::default();
+            assert_eq!(co2_passport.get(), false);
         }
 
         /// We test a simple use case of our contract.
         #[ink::test]
         fn it_works() {
-            let mut ink_project_template = InkProjectTemplate::new(false);
-            assert_eq!(ink_project_template.get(), false);
-            ink_project_template.flip();
-            assert_eq!(ink_project_template.get(), true);
+            let mut co2_passport = CO2Passport::new(false);
+            assert_eq!(co2_passport.get(), false);
+            co2_passport.flip();
+            assert_eq!(co2_passport.get(), true);
         }
     }
 
@@ -93,24 +93,18 @@ mod ink_project_template {
         #[ink_e2e::test]
         async fn default_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
             // Given
-            let constructor = InkProjectTemplateRef::default();
+            let constructor = CO2PassportRef::default();
 
             // When
             let contract_account_id = client
-                .instantiate(
-                    "ink_project_template",
-                    &ink_e2e::alice(),
-                    constructor,
-                    0,
-                    None,
-                )
+                .instantiate("co2_passport", &ink_e2e::alice(), constructor, 0, None)
                 .await
                 .expect("instantiate failed")
                 .account_id;
 
             // Then
-            let get = build_message::<InkProjectTemplateRef>(contract_account_id.clone())
-                .call(|ink_project_template| ink_project_template.get());
+            let get = build_message::<CO2PassportRef>(contract_account_id.clone())
+                .call(|co2_passport| co2_passport.get());
             let get_result = client.call_dry_run(&ink_e2e::alice(), &get, 0, None).await;
             assert!(matches!(get_result.return_value(), false));
 
@@ -121,35 +115,29 @@ mod ink_project_template {
         #[ink_e2e::test]
         async fn it_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
             // Given
-            let constructor = InkProjectTemplateRef::new(false);
+            let constructor = CO2PassportRef::new(false);
             let contract_account_id = client
-                .instantiate(
-                    "ink_project_template",
-                    &ink_e2e::bob(),
-                    constructor,
-                    0,
-                    None,
-                )
+                .instantiate("co2_passport", &ink_e2e::bob(), constructor, 0, None)
                 .await
                 .expect("instantiate failed")
                 .account_id;
 
-            let get = build_message::<InkProjectTemplateRef>(contract_account_id.clone())
-                .call(|ink_project_template| ink_project_template.get());
+            let get = build_message::<CO2PassportRef>(contract_account_id.clone())
+                .call(|co2_passport| co2_passport.get());
             let get_result = client.call_dry_run(&ink_e2e::bob(), &get, 0, None).await;
             assert!(matches!(get_result.return_value(), false));
 
             // When
-            let flip = build_message::<InkProjectTemplateRef>(contract_account_id.clone())
-                .call(|ink_project_template| ink_project_template.flip());
+            let flip = build_message::<CO2PassportRef>(contract_account_id.clone())
+                .call(|co2_passport| co2_passport.flip());
             let _flip_result = client
                 .call(&ink_e2e::bob(), flip, 0, None)
                 .await
                 .expect("flip failed");
 
             // Then
-            let get = build_message::<InkProjectTemplateRef>(contract_account_id.clone())
-                .call(|ink_project_template| ink_project_template.get());
+            let get = build_message::<CO2PassportRef>(contract_account_id.clone())
+                .call(|co2_passport| co2_passport.get());
             let get_result = client.call_dry_run(&ink_e2e::bob(), &get, 0, None).await;
             assert!(matches!(get_result.return_value(), true));
 

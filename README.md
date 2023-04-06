@@ -1,5 +1,5 @@
-# ink! project template
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![continuous-intergration/ink-project-template](https://github.com/paritytech/ink-project-template/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/ink-project-template/actions/workflows/ci.yml)
+# CO2 Passport Smart Contracts
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![continuous-intergration/co2-passport](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
 
 ## Local development setup
 
@@ -37,6 +37,11 @@ cargo +nightly clippy --all-features
 ### Check that smart contracts build to WASM
 ```sh
 cargo contract check
+```
+
+### Testing
+```sh
+cargo test --features e2e-tests
 ```
 
 ### Build smart contracts
