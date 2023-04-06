@@ -1,0 +1,97 @@
+name: continuous-intergration/ink-project-template
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+        - v*
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check:
+    name: ink-project-template
+    strategy:
+      matrix:
+        platform:
+          - ubuntu_20_64_core
+        toolchain:
+          - stable
+        job:
+          - +nightly fmt --check
+          - +nightly clippy --all-features
+          - contract build
+          - test --features e2e-tests
+    runs-on: ${{ matrix.platform }}
+    env:
+      RUST_BACKTRACE:           full
+    steps:
+
+      - name: Checkout sources & submodules
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Install toolchain
+        id: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          components: rust-src
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.2.0
+
+      - name: Install `cargo-contract` `main`
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --git https://github.com/paritytech/cargo-contract.git
+
+      - name: Install cargo-dylint
+        uses: baptiste0928/cargo-install@bf6758885262d0e6f61089a9d8c8790d3ac3368f # v1.3.0
+        with:
+          crate: cargo-dylint
+          version: 1
+
+      - name: Install dylint-link
+        uses: baptiste0928/cargo-install@bf6758885262d0e6f61089a9d8c8790d3ac3368f # v1.3.0
+        with:
+          crate: dylint-link
+          version: 1
+
+      - name: Download and run latest `substrate-contracts-node` binary
+        if: runner.os == 'Linux'
+        run: |
+          curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-linux' && \
+          unzip substrate-contracts-node.zip && \
+          chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node &&
+          ./artifacts/substrate-contracts-node-linux/substrate-contracts-node -linfo,runtime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
+
+      - name: Download and run latest `substrate-contracts-node` binary
+        if: runner.os == 'macOS'
+        run: |
+            curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-mac' && \
+            unzip substrate-contracts-node.zip && \
+            chmod +x artifacts/substrate-contracts-node-mac/substrate-contracts-node &&
+            ./artifacts/substrate-contracts-node-mac/substrate-contracts-node -linfo,runtime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
+
+      - name: Install and run latest `substrate-contracts-node` binary
+        if: runner.os == 'Windows'
+        run: |
+            cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git --force --locked && \
+            substrate-contracts-node -lruntime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
+
+      - name: Output versions
+        run: |
+            cargo -vV
+            cargo contract --version
+
+      - name: ${{ matrix.job }} CI action on ${{ matrix.platform }}-${{ matrix.toolchain }}
+        run: |
+           cargo ${{ matrix.job }} --verbose
