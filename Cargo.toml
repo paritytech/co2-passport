@@ -1,9 +1,9 @@
 [package]
-name = "co2_passport"
+name = "asset_co2_emissions"
 version = "0.1.0"
 authors = ["Daniel Bigos <daniel.bigos@parity.io>"]
 edition = "2021"
-description = "The smart contract with CO2 Passports logic"
+description = "Non-Fungible Assets with CO2 Emissions tracking."
 readme = "README.md"
 
 [dependencies]

@@ -1,5 +1,5 @@
-# CO2 Passport Smart Contracts
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![continuous-intergration/co2-passport](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
+# Non-Fungible Assets with CO2 Emissions tracking.
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)   [![CI - Check Set-Up, Build & Test](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
 
 ## Local development setup
 
@@ -58,7 +58,7 @@ pre-commit run --all-files
 This repository contains predefined GitHub actions for quality assurance.
 
 ### GitHub runners
-- Linux -> `ubuntu_20_64_core`
+- Linux -> `ubuntu-20.04`
 
 ### Jobs
 - Formatting check -> `cargo +nightly fmt --check`
