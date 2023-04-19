@@ -1,51 +1,42 @@
-name: continuous-intergration/ink-project-template
+name: CI - Check Set-Up, Build & Test
 
+# Controls when the action will run.
 on:
+  # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches:
-      - main
-    tags:
-        - v*
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   check:
-    name: ink-project-template
-    strategy:
-      matrix:
-        platform:
-          - ubuntu_20_64_core
-        toolchain:
-          - stable
-        job:
-          - +nightly fmt --check
-          - +nightly clippy --all-features
-          - contract build
-          - test --features e2e-tests
-    runs-on: ${{ matrix.platform }}
+    # The type of runner that the job will run on
+    runs-on: ubuntu-20.04
     env:
-      RUST_BACKTRACE:           full
+      NIGHTLY: nightly-2023-04-12 # Fix version to prevent cache misses with nightly changes
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
 
-      - name: Checkout sources & submodules
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
-          submodules: recursive
-
-      - name: Install toolchain
-        id: toolchain
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          components: rust-src
-          override: true
+          toolchain: stable
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.2.0
+      - name: Install Nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ env.NIGHTLY }}
+          override: true
+          components: rustfmt, clippy, rust-src
 
       - name: Install `cargo-contract` `main`
         uses: actions-rs/cargo@v1
@@ -53,45 +44,44 @@ jobs:
           command: install
           args: --git https://github.com/paritytech/cargo-contract.git
 
-      - name: Install cargo-dylint
-        uses: baptiste0928/cargo-install@bf6758885262d0e6f61089a9d8c8790d3ac3368f # v1.3.0
-        with:
-          crate: cargo-dylint
-          version: 1
-
-      - name: Install dylint-link
-        uses: baptiste0928/cargo-install@bf6758885262d0e6f61089a9d8c8790d3ac3368f # v1.3.0
-        with:
-          crate: dylint-link
-          version: 1
-
-      - name: Download and run latest `substrate-contracts-node` binary
-        if: runner.os == 'Linux'
+      - name: Install `substrate-contracts-node`
         run: |
           curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-linux' && \
           unzip substrate-contracts-node.zip && \
-          chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node &&
-          ./artifacts/substrate-contracts-node-linux/substrate-contracts-node -linfo,runtime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
-
-      - name: Download and run latest `substrate-contracts-node` binary
-        if: runner.os == 'macOS'
-        run: |
-            curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-mac' && \
-            unzip substrate-contracts-node.zip && \
-            chmod +x artifacts/substrate-contracts-node-mac/substrate-contracts-node &&
-            ./artifacts/substrate-contracts-node-mac/substrate-contracts-node -linfo,runtime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
-
-      - name: Install and run latest `substrate-contracts-node` binary
-        if: runner.os == 'Windows'
-        run: |
-            cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git --force --locked && \
-            substrate-contracts-node -lruntime::contracts=debug  2>&1 | tee /tmp/contracts-node.log &
+          echo "$(pwd)/artifacts/substrate-contracts-node-linux" >> $GITHUB_PATH && \
+          chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node
 
       - name: Output versions
         run: |
             cargo -vV
             cargo contract --version
+            substrate-contracts-node --version
 
-      - name: ${{ matrix.job }} CI action on ${{ matrix.platform }}-${{ matrix.toolchain }}
+      # Fail fast: check formatting first as it doesn't require compilation
+      - name: Check formatting
         run: |
-           cargo ${{ matrix.job }} --verbose
+          cargo fmt --check
+
+      - name: Cache Build artefacts
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{  hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check Contract Build
+        run: |
+          cargo contract check
+
+      - name: Run tests
+        run: |
+          cargo test
+
+      - name: Check clippy linting
+        run: |
+          cargo clippy --all-features
