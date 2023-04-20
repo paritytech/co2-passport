@@ -11,7 +11,7 @@ repos:
       - id: cargo-fmt
         name: cargo-fmt
         description: Format files with cargo fmt
-        entry: cargo +nightly fmt
+        entry: cargo fmt
         language: system
         types: [rust]
         pass_filenames: false
@@ -19,7 +19,7 @@ repos:
       - id: cargo-fmt-check
         name: cargo-fmt-check
         description: Check formatting files with cargo fmt
-        entry: cargo +nightly fmt --check
+        entry: cargo fmt --check
         language: system
         types: [rust]
         pass_filenames: false
@@ -27,7 +27,7 @@ repos:
       - id: cargo-clippy
         name: cargo-clippy
         description: Run the Clippy linter on the project.
-        entry: cargo +nightly clippy --all-features
+        entry: cargo clippy --all-features
         language: system
         types: [rust]
         pass_filenames: false
