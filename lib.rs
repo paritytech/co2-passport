@@ -3,6 +3,7 @@
 #[ink::contract]
 mod asset_co2_emissions {
     use ink::prelude::vec::Vec;
+    use ink::storage::Mapping;
 
     /// Asset ID type.
     // TODO proper ID type
@@ -11,8 +12,8 @@ mod asset_co2_emissions {
     pub type Metadata = Vec<u8>;
     pub type RoleId = AccountId;
     pub type ParentRelation = u128;
-    pub type ParentDetails = (AssetId, ParentRelation);
-    pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, Option<ParentDetails>);
+    pub type ParentDetails = Option<(AssetId, ParentRelation)>;
+    pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
     pub type Description = Vec<u8>;
 
     #[derive(scale::Encode, scale::Decode)]
@@ -43,6 +44,14 @@ mod asset_co2_emissions {
         NotOwner,
         // When an Asset is not in a `Paused` state.
         NotPaused,
+        // When an Asset's parent is not found.
+        ParentNotFound,
+        // When an Asset's parent is not in `Paused` state.
+        ParentNotPaused,
+        // When CO2 Emissions vector is empty.
+        EmissionsEmpty,
+        // When CO2 Emissions item contains 0 emissions value.
+        ZeroEmissions,
     }
 
     /// The AccessControl error types.
@@ -129,6 +138,7 @@ mod asset_co2_emissions {
     }
 
     #[derive(scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub struct CO2Emissions {
         // Type of CO2 Emissions (bucket)
         category: EmissionsCategory,
@@ -298,7 +308,7 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: Option<ParentDetails>,
+            parent: ParentDetails,
         ) -> Result<(), AssetCO2EmissionsError>;
 
         /// Transfers the ownership of an Asset to another account
@@ -406,7 +416,7 @@ mod asset_co2_emissions {
         /// * `id` - The Asset id.
         ///
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<Option<ParentDetails>>;
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails>;
 
         /// Get asset details.
         ///
@@ -431,18 +441,178 @@ mod asset_co2_emissions {
 
     #[ink(storage)]
     pub struct GaiaAsset {
-        /// Stores a single `bool` value on the storage.
-        value: bool,
+        // Global const values
+        emissions_max_length: u32,
+        metadata_max_length: u32,
+        supplier_id_max_length: u32,
+
+        // Storage
+        asset_owner: Mapping<AssetId, AccountId>,
+        co2_emissions: Mapping<AssetId, Vec<CO2Emissions>>,
+        metadata: Mapping<AssetId, Metadata>,
+        paused: Mapping<AssetId, bool>,
+        parent: Mapping<AssetId, ParentDetails>,
     }
 
     impl GaiaAsset {
         #[ink(constructor)]
-        pub fn new(init_value: bool) -> Self {
-            Self { value: init_value }
+        pub fn new(
+            emissions_max_length: u32,
+            metadata_max_length: u32,
+            supplier_id_max_length: u32,
+        ) -> Self {
+            Self {
+                emissions_max_length,
+                metadata_max_length,
+                supplier_id_max_length,
+                asset_owner: Mapping::new(),
+                co2_emissions: Mapping::new(),
+                metadata: Mapping::new(),
+                paused: Mapping::new(),
+                parent: Mapping::new(),
+            }
+        }
+
+        fn ensure_paused(id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_not_paused(id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_proper_parent(parent: &ParentDetails) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_emissions_correct(
+            emissions: &Vec<CO2Emissions>,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+        fn ensure_emissions_not_empty(
+            emissions: &Vec<CO2Emissions>,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_emissions_item_correct(
+            item: &CO2Emissions,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_emissions_item_not_zero(
+            item: &CO2Emissions,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_emissions_item_origin_correct(
+            item: &CO2Emissions,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+
+        fn ensure_proper_metadata(metadata: &Metadata) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Ok(())
+        }
+    }
+
+    impl AssetCO2Emissions for GaiaAsset {
+        #[ink(message)]
+        fn list_assets(&self, owner: AccountId) -> Vec<AssetId> {
+            // TODO
+            Vec::new()
         }
         #[ink(message)]
-        pub fn get(&self) -> bool {
-            self.value
+        fn owner_of(&self, id: AssetId) -> Option<AccountId> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn mint(
+            &mut self,
+            to: AccountId,
+            metadata: Metadata,
+            emissions: Vec<CO2Emissions>,
+            parent: ParentDetails,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Err(AssetCO2EmissionsError::NotPaused)
+        }
+
+        #[ink(message)]
+        fn transfer(
+            &mut self,
+            to: AccountId,
+            id: AssetId,
+            emissions: Vec<CO2Emissions>,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Err(AssetCO2EmissionsError::NotOwner)
+        }
+
+        #[ink(message)]
+        fn pause(&mut self, id: AssetId) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Err(AssetCO2EmissionsError::AlreadyPaused)
+        }
+
+        #[ink(message)]
+        fn has_paused(&self, id: AssetId) -> Option<bool> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn add_emissions(
+            &mut self,
+            id: AssetId,
+            emissions: CO2Emissions,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            // TODO
+            Err(AssetCO2EmissionsError::AssetNotFound)
+        }
+
+        #[ink(message)]
+        fn get_asset_emissions(&self, id: AssetId) -> Option<Vec<CO2Emissions>> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn get_metadata(&self, id: AssetId) -> Option<Metadata> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn get_asset(&self, id: AssetId) -> Option<AssetDetails> {
+            // TODO
+            None
+        }
+
+        #[ink(message)]
+        fn query_emissions(&self, id: AssetId) -> Option<Vec<AssetDetails>> {
+            // TODO
+            None
         }
     }
 
