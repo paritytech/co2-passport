@@ -1,8 +1,10 @@
 [package]
-name = "ink_project_template"
+name = "asset_co2_emissions"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["Daniel Bigos <daniel.bigos@parity.io>"]
 edition = "2021"
+description = "Non-Fungible Assets with CO2 Emissions tracking."
+readme = "README.md"
 
 [dependencies]
 ink = { version = "4.2", default-features = false }

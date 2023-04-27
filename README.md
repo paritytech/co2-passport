@@ -1,5 +1,5 @@
-# ink! project template
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![continuous-intergration/ink-project-template](https://github.com/paritytech/ink-project-template/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/ink-project-template/actions/workflows/ci.yml)
+# Non-Fungible Assets with CO2 Emissions tracking.
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)   [![CI - Check Set-Up, Build & Test](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
 
 ## Local development setup
 
@@ -39,6 +39,11 @@ cargo +nightly clippy --all-features
 cargo contract check
 ```
 
+### Testing
+```sh
+cargo test --features e2e-tests
+```
+
 ### Build smart contracts
 ```sh
 cargo contract build --release
@@ -53,7 +58,7 @@ pre-commit run --all-files
 This repository contains predefined GitHub actions for quality assurance.
 
 ### GitHub runners
-- Linux -> `ubuntu_20_64_core`
+- Linux -> `ubuntu-20.04`
 
 ### Jobs
 - Formatting check -> `cargo +nightly fmt --check`
