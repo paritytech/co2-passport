@@ -98,6 +98,7 @@ mod asset_co2_emissions {
         #[ink(topic)]
         origin: EmissionsOrigin,
         #[ink(topic)]
+        date: u64,
         emissions: u128,
     }
 
@@ -108,7 +109,6 @@ mod asset_co2_emissions {
         id: RoleId,
         #[ink(topic)]
         owner: AccountId,
-        #[ink(topic)]
         description: Description,
     }
 
@@ -137,7 +137,7 @@ mod asset_co2_emissions {
         // Emissions in kg CO2 (to avoid fractions).
         emissions: u128,
         // Real CO2 emissions date as UNIX timestamp, not block creation time.
-        date: i64,
+        date: u64,
     }
 
     #[ink::trait_definition]
@@ -151,7 +151,7 @@ mod asset_co2_emissions {
         ///
         /// # Errors
         ///
-        /// * `EmptyRole` - Account list cannot be emty.
+        /// * `EmptyRole` - Account list cannot be empty.
         ///
         /// # Events
         ///
@@ -340,6 +340,7 @@ mod asset_co2_emissions {
         ///
         /// * `AssetNotFound` - When the Asset does not exist.
         /// * `AlreadyPaused` - When the Asset is already paused.
+        /// * `NotOwner` - When transaction sender is not an owner.
         ///
         /// # Events
         ///
