@@ -65,3 +65,29 @@ This repository contains predefined GitHub actions for quality assurance.
 - Linter check -> `cargo +nightly clippy --all-features`
 - Building smart contracts -> `cargo contract build`
 - Testing smart contracts -> `cargo test --features e2e-tests`
+
+
+## Run Smart Contract locally
+
+### Contracts Node
+In a separated terminal start the Contracts Node:
+```sh
+substrate-contracts-node
+```
+
+### Smart Contract
+Build Smart Contract:
+```sh
+cargo contract build --release
+```
+
+### Smart Contracts UI
+1. Go to [Contracts UI](https://contracts-ui.substrate.io/).
+1. Select `Upload a new contract`.
+1. In `Upload and Instantiate` window:
+    - Set contract name like `InfinityAsset`.
+    - Upload contract details -> select `target/ink/asset_co2_emissions.contract` from the Smart Contract repository.
+    - Press `Next` button.
+    - Press `Next` button.
+    - Press `Upload and Instantiate` button.
+1. Interact with the Smart Contract.

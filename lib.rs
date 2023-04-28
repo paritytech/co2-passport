@@ -79,18 +79,15 @@ mod asset_co2_emissions {
     pub struct Minted {
         #[ink(topic)]
         id: AssetId,
-        #[ink(topic)]
         metadata: Metadata,
-        #[ink(topic)]
         owner: AccountId,
+        parent: ParentDetails,
     }
 
     /// This emits when ownership of any Asset changes.
     #[ink(event)]
     pub struct Transfer {
-        #[ink(topic)]
         from: AccountId,
-        #[ink(topic)]
         to: AccountId,
         #[ink(topic)]
         id: AssetId,
@@ -108,11 +105,8 @@ mod asset_co2_emissions {
     pub struct Emission {
         #[ink(topic)]
         id: AssetId,
-        #[ink(topic)]
         category: EmissionsCategory,
-        #[ink(topic)]
         origin: EmissionsOrigin,
-        #[ink(topic)]
         date: u64,
         emissions: u128,
     }
@@ -122,7 +116,6 @@ mod asset_co2_emissions {
     pub struct RoleCreated {
         #[ink(topic)]
         id: RoleId,
-        #[ink(topic)]
         owner: AccountId,
         description: Description,
     }
@@ -132,7 +125,6 @@ mod asset_co2_emissions {
     pub struct RoleOwnershipChanged {
         #[ink(topic)]
         id: RoleId,
-        #[ink(topic)]
         new_owner: AccountId,
     }
 
@@ -648,6 +640,7 @@ mod asset_co2_emissions {
                 id: asset_id,
                 metadata,
                 owner: to,
+                parent,
             });
 
             // Save CO2 emissions & emit corresponding events
@@ -816,6 +809,7 @@ mod asset_co2_emissions {
             expected_id: AssetId,
             expected_metadata: Metadata,
             expected_owner: AccountId,
+            expected_parent: ParentDetails,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("encountered invalid contract event data buffer");
@@ -823,6 +817,7 @@ mod asset_co2_emissions {
                 id,
                 metadata,
                 owner,
+                parent,
             }) = decoded_event
             {
                 assert_eq!(id, expected_id, "encountered invalid Minted.id");
@@ -831,6 +826,7 @@ mod asset_co2_emissions {
                     "encountered invalid Minted.metadata"
                 );
                 assert_eq!(owner, expected_owner, "encountered invalid Minted.owner");
+                assert_eq!(parent, expected_parent, "encountered invalid Minted.parent");
             } else {
                 panic!("encountered unexpected event kind: expected a Minted event")
             }
@@ -842,14 +838,6 @@ mod asset_co2_emissions {
                 encoded_into_hash(&PrefixedValue {
                     prefix: b"InfinityAsset::Minted::id",
                     value: &expected_id,
-                }),
-                encoded_into_hash(&PrefixedValue {
-                    prefix: b"InfinityAsset::Minted::metadata",
-                    value: &expected_metadata,
-                }),
-                encoded_into_hash(&PrefixedValue {
-                    prefix: b"InfinityAsset::Minted::owner",
-                    value: &expected_owner,
                 }),
             ];
             assert_event_topics(expected_topics, event.topics.clone());
@@ -919,18 +907,6 @@ mod asset_co2_emissions {
                 encoded_into_hash(&PrefixedValue {
                     prefix: b"InfinityAsset::Emission::id",
                     value: &expected_id,
-                }),
-                encoded_into_hash(&PrefixedValue {
-                    prefix: b"InfinityAsset::Emission::category",
-                    value: &expected_category,
-                }),
-                encoded_into_hash(&PrefixedValue {
-                    prefix: b"InfinityAsset::Emission::origin",
-                    value: &expected_origin,
-                }),
-                encoded_into_hash(&PrefixedValue {
-                    prefix: b"InfinityAsset::Emission::date",
-                    value: &expected_date,
                 }),
             ];
             assert_event_topics(expected_topics, event.topics.clone());
@@ -1038,7 +1014,13 @@ mod asset_co2_emissions {
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
             // 1 * Minted + 1 * Emissions
             assert_eq!(1 + 1, emitted_events.len());
-            assert_minted_event(&emitted_events[0], expected_asset_id, metadata, owner);
+            assert_minted_event(
+                &emitted_events[0],
+                expected_asset_id,
+                metadata,
+                owner,
+                parent,
+            );
             assert_emissions_event(
                 &emitted_events[1],
                 expected_asset_id,
@@ -1083,7 +1065,13 @@ mod asset_co2_emissions {
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
             // 1 * Minted + 3 * Emissions
             assert_eq!(1 + 3, test::recorded_events().count());
-            assert_minted_event(&emitted_events[0], expected_asset_id, metadata, owner);
+            assert_minted_event(
+                &emitted_events[0],
+                expected_asset_id,
+                metadata,
+                owner,
+                parent,
+            );
             assert_emissions_event(
                 &emitted_events[1],
                 expected_asset_id,
@@ -1477,7 +1465,13 @@ mod asset_co2_emissions {
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
             // 1 * Minted + 1 * Emissions + 1 * Paused + 1 * Minted + 1 * Emissions
             assert_eq!(1 + 1 + 1 + 1 + 1, emitted_events.len());
-            assert_minted_event(&emitted_events[3], expected_asset_id, metadata, owner);
+            assert_minted_event(
+                &emitted_events[3],
+                expected_asset_id,
+                metadata,
+                owner,
+                parent,
+            );
             assert_emissions_event(
                 &emitted_events[4],
                 expected_asset_id,
