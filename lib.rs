@@ -608,6 +608,26 @@ mod asset_co2_emissions {
                 .map_or_else(|| Err(AssetCO2EmissionsError::AssetIdOverflow), |id| Ok(id))?;
             Ok(asset_id)
         }
+
+        fn build_asset_tree(&self, id: AssetId) -> Vec<AssetDetails> {
+            let mut asset_id = id;
+            let mut tree_path: Vec<AssetDetails> = Vec::new();
+            loop {
+                // This function is called after initial check if asset exists
+                // So it must contain asset and its childrn -- unwrap must be safe
+                // It has been confirmed in previous test cases
+                // If not, we need to capture that sth is wrong with the smart contract
+                let asset: AssetDetails = self.get_asset(asset_id).unwrap();
+                let parent_details = asset.3;
+                tree_path.push(asset);
+                match parent_details {
+                    None => break,
+                    Some((parent_id, _)) => asset_id = parent_id,
+                }
+            }
+
+            tree_path
+        }
     }
 
     impl AssetCO2Emissions for InfinityAsset {
@@ -683,8 +703,10 @@ mod asset_co2_emissions {
         fn pause(&mut self, id: AssetId) -> Result<(), AssetCO2EmissionsError> {
             let _ = self.ensure_owner(&id, &self.env().caller())?;
             let _ = self.ensure_not_paused(&id)?;
+
             self.paused.insert(id, &true);
             self.env().emit_event(Paused { id });
+
             Ok(())
         }
 
@@ -742,9 +764,11 @@ mod asset_co2_emissions {
         }
 
         #[ink(message)]
-        fn query_emissions(&self, _id: AssetId) -> Option<Vec<AssetDetails>> {
-            // TODO
-            None
+        fn query_emissions(&self, id: AssetId) -> Option<Vec<AssetDetails>> {
+            match self.ensure_exists(&id) {
+                Err(_) => None,
+                Ok(_) => Some(self.build_asset_tree(id)),
+            }
         }
     }
 
@@ -1970,6 +1994,100 @@ mod asset_co2_emissions {
             let owner_from_state = contract.owner_of(asset_id);
             assert!(owner_from_state.is_some());
             assert_eq!(new_owner, owner_from_state.unwrap());
+        }
+
+        #[ink::test]
+        fn should_query_emissions_for_single_asset_work_properly() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_origin = EmissionsOrigin::Hybrid;
+
+            let e = 1u128;
+            let item = new_emissions(emissions_category, emissions_origin, e, timestamp);
+
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+            let asset_id: AssetId = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert!(contract
+                .mint(owner, metadata.clone(), emissions.clone(), parent)
+                .is_ok());
+
+            let expected_value: Vec<AssetDetails> =
+                Vec::from([(asset_id, metadata, emissions, parent)]);
+            let details_from_state = contract.query_emissions(asset_id);
+            assert!(details_from_state.is_some());
+            assert_eq!(expected_value, details_from_state.unwrap());
+        }
+
+        #[ink::test]
+        fn should_nonexistent_asset_query_emissions_work_properly() {
+            let contract = InfinityAsset::new();
+            assert!(contract.query_emissions(69).is_none());
+        }
+
+        #[ink::test]
+        fn should_query_emissions_for_longer_path_work_properly() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_origin = EmissionsOrigin::Hybrid;
+
+            let e = 1u128;
+            let item = new_emissions(emissions_category, emissions_origin, e, timestamp);
+
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+            let mut asset_id: AssetId = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+            assert!(contract
+                .mint(owner, metadata.clone(), emissions.clone(), parent)
+                .is_ok());
+
+            let mut expected_tree_path: Vec<AssetDetails> =
+                Vec::from([(asset_id, metadata.clone(), emissions, parent)]);
+
+            // create long token tree path
+            for i in 1..1_000 {
+                let parent: ParentDetails = Some((asset_id, (1_000_000 - i)));
+                let e = u128::from(i);
+                let item = new_emissions(
+                    EmissionsCategory::Process,
+                    EmissionsOrigin::Supplier,
+                    e,
+                    timestamp + i as u64,
+                );
+                let emissions: Vec<CO2Emissions> = Vec::from([item]);
+                assert!(contract.pause(asset_id).is_ok());
+                assert!(contract
+                    .mint(owner, metadata.clone(), emissions.clone(), parent)
+                    .is_ok());
+
+                asset_id += 1;
+                expected_tree_path.insert(0, (asset_id, metadata.clone(), emissions, parent));
+            }
+
+            let details_from_state = contract.query_emissions(asset_id);
+
+            assert!(details_from_state.is_some());
+
+            assert_eq!(expected_tree_path, details_from_state.unwrap());
         }
     }
 
