@@ -13,7 +13,7 @@ mod asset_co2_emissions {
 
     pub type Metadata = Vec<u8>;
     pub type RoleId = AccountId;
-    pub type ParentRelation = u8;
+    pub type ParentRelation = u128;
     pub type ParentDetails = Option<(AssetId, ParentRelation)>;
     pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
     pub type Description = Vec<u8>;
@@ -1634,7 +1634,7 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let parent: ParentDetails = Some((1000, 85u8));
+            let parent: ParentDetails = Some((1000, 85));
 
             set_caller(owner);
             assert_eq!(
@@ -2455,7 +2455,7 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100) as u8)));
+                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
                 let e = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
@@ -2556,7 +2556,7 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100) as u8)));
+                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
                 let e = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
