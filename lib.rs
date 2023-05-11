@@ -18,6 +18,9 @@ mod asset_co2_emissions {
     pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
     pub type Description = Vec<u8>;
 
+    pub const MAX_METADATA_LENGTH: u16 = 250;
+    pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
+
     #[derive(Copy, Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     enum EmissionsCategory {
@@ -46,8 +49,12 @@ mod asset_co2_emissions {
         ParentNotPaused,
         // When CO2 Emissions vector is empty.
         EmissionsEmpty,
+        // Too many emissions in vector
+        EmissionsOverflow,
         // When CO2 Emissions item contains 0 emissions value.
         ZeroEmissionsItem,
+        // When the Metadata vector contains too many characters
+        MetadataOverflow,
         // When a parent <> child Asset relation is equal to 0
         InvalidAssetRelation,
         // When an Asset with ID already exists.
@@ -585,10 +592,11 @@ mod asset_co2_emissions {
 
         fn ensure_emissions_not_unbounded(
             &self,
-            _emissions: &Vec<CO2Emissions>,
+            emissions: &Vec<CO2Emissions>,
         ) -> Result<(), AssetCO2EmissionsError> {
-            // TODO
-            // MAX_LENGHT for emissions
+            if emissions.len() > MAX_EMISSIONS_PER_ASSET as usize {
+                return Err(AssetCO2EmissionsError::EmissionsOverflow)
+            }
             Ok(())
         }
         fn ensure_emissions_item_correct(
@@ -611,16 +619,20 @@ mod asset_co2_emissions {
 
         fn ensure_proper_metadata(
             &self,
-            _metadata: &Metadata,
+            metadata: &Metadata,
         ) -> Result<(), AssetCO2EmissionsError> {
-            // TODO
-            // Check Metadata's length
+            if metadata.len() > MAX_METADATA_LENGTH as usize {
+                return Err(AssetCO2EmissionsError::MetadataOverflow)
+            }
             Ok(())
         }
 
-        fn save_new_emissions(&mut self, id: &AssetId, emissions: &Vec<CO2Emissions>) {
+        fn save_new_emissions(&mut self, id: &AssetId, emissions: &Vec<CO2Emissions>) -> Result<(), AssetCO2EmissionsError> {
             let mut updated_emissions = self.co2_emissions.get(id).unwrap_or(Vec::new());
             updated_emissions.extend_from_slice(emissions);
+
+            self.ensure_emissions_not_unbounded(&updated_emissions)?;
+
             self.co2_emissions.insert(id, &updated_emissions);
             emissions.iter().for_each(|emission| {
                 self.env().emit_event(Emission {
@@ -632,6 +644,7 @@ mod asset_co2_emissions {
                     emissions: emission.emissions,
                 })
             });
+            Ok(())
         }
 
         fn next_id(&mut self) -> Result<AssetId, AssetCO2EmissionsError> {
@@ -713,7 +726,7 @@ mod asset_co2_emissions {
             });
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emissions(&asset_id, &emissions);
+            self.save_new_emissions(&asset_id, &emissions)?;
 
             Ok(())
         }
@@ -740,7 +753,7 @@ mod asset_co2_emissions {
             self.env().emit_event(Transfer { from, to, id });
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emissions(&id, &emissions);
+            self.save_new_emissions(&id, &emissions)?;
 
             Ok(())
         }
@@ -773,7 +786,7 @@ mod asset_co2_emissions {
             let _ = self.ensure_emissions_item_correct(&emissions)?;
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emissions(&id, &Vec::from([emissions]));
+            self.save_new_emissions(&id, &Vec::from([emissions]))?;
             Ok(())
         }
 
@@ -2233,6 +2246,93 @@ mod asset_co2_emissions {
         }
 
         #[ink::test]
+        fn should_reject_too_many_emissions_on_blast() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_primary = true;
+            let emissions_balanced = true;
+
+            let mut emissions: Vec<CO2Emissions> = Vec::new();
+            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1{
+                let e = 1u128;
+                let item = new_emissions(
+                    emissions_category,
+                    emissions_primary,
+                    emissions_balanced,
+                    e,
+                    timestamp,
+                );
+               emissions.push(item);
+            }
+
+            let asset_id = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert_eq!(contract
+                .blast(owner, metadata.clone(), emissions.clone(), parent), Err(AssetCO2EmissionsError::EmissionsOverflow));
+
+            assert_eq!(
+                contract.transfer(accounts.bob, asset_id, Vec::new()),
+                Err(AssetCO2EmissionsError::AssetNotFound)
+            );
+        }
+
+        #[ink::test]
+        fn should_reject_too_many_emissions_on_add() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_primary = true;
+            let emissions_balanced = true;
+
+            let e = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_primary,
+                emissions_balanced,
+                e,
+                timestamp,
+            );
+
+            let mut emissions: Vec<CO2Emissions> = Vec::new();
+            for _ in 0..MAX_EMISSIONS_PER_ASSET {
+               emissions.push(item.clone());
+            }
+
+            let asset_id = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert!(contract
+                .blast(owner, metadata.clone(), emissions.clone(), parent).is_ok());
+
+            assert_eq!(
+                contract.add_emissions(asset_id, item.clone()),
+                Err(AssetCO2EmissionsError::EmissionsOverflow)
+            );
+
+            assert_eq!(
+                contract.transfer(accounts.bob, asset_id, Vec::from([item.clone()])),
+                Err(AssetCO2EmissionsError::EmissionsOverflow)
+            );
+
+        }
+
+        #[ink::test]
         fn should_reject_zero_emissions_item_in_transfer() {
             let accounts = get_accounts();
 
@@ -2300,6 +2400,50 @@ mod asset_co2_emissions {
                     ])
                 ),
                 Err(AssetCO2EmissionsError::ZeroEmissionsItem)
+            );
+        }
+
+        #[ink::test]
+        fn should_reject_too_many_chars_in_metadata() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let mut metadata: Metadata = Vec::new();
+            for _ in 0..MAX_METADATA_LENGTH + 1 {
+                metadata.push(0u8);
+            }
+
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_primary = true;
+            let emissions_balanced = true;
+
+            let mut emissions: Vec<CO2Emissions> = Vec::new();
+            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1{
+                let e = 1u128;
+                let item = new_emissions(
+                    emissions_category,
+                    emissions_primary,
+                    emissions_balanced,
+                    e,
+                    timestamp,
+                );
+               emissions.push(item);
+            }
+
+            let asset_id = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert_eq!(contract
+                .blast(owner, metadata.clone(), emissions.clone(), parent), Err(AssetCO2EmissionsError::MetadataOverflow));
+
+            assert_eq!(
+                contract.transfer(accounts.bob, asset_id, Vec::new()),
+                Err(AssetCO2EmissionsError::AssetNotFound)
             );
         }
 
