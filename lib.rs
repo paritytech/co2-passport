@@ -444,6 +444,7 @@ mod asset_co2_emissions {
     }
 
     #[ink(storage)]
+    #[derive(Default)]
     pub struct InfinityAsset {
         next_id: AssetId,
         asset_owner: Mapping<AssetId, AccountId>,
@@ -459,12 +460,7 @@ mod asset_co2_emissions {
         pub fn new() -> Self {
             Self {
                 next_id: 1,
-                asset_owner: Mapping::new(),
-                owned_assets: BTreeMap::new(),
-                co2_emissions: Mapping::new(),
-                metadata: Mapping::new(),
-                paused: Mapping::new(),
-                parent: Mapping::new(),
+                ..Default::default()
             }
         }
 
@@ -555,8 +551,8 @@ mod asset_co2_emissions {
             match parent {
                 None => Ok(()),
                 Some((parent_id, relation)) => {
-                    let _ = self.ensure_owner(parent_id, caller)?;
-                    let _ = match relation {
+                    self.ensure_owner(parent_id, caller)?;
+                    match relation {
                         0 => Err(AssetCO2EmissionsError::InvalidAssetRelation),
                         _ => Ok(()),
                     }?;
@@ -630,7 +626,7 @@ mod asset_co2_emissions {
         fn save_new_emissions(
             &mut self,
             id: &AssetId,
-            emissions: &Vec<CO2Emissions>,
+            emissions: &[CO2Emissions],
         ) -> Result<(), AssetCO2EmissionsError> {
             let mut updated_emissions = self.co2_emissions.get(id).unwrap_or(Vec::new());
             updated_emissions.extend_from_slice(emissions);
@@ -656,7 +652,7 @@ mod asset_co2_emissions {
             self.next_id = self
                 .next_id
                 .checked_add(1)
-                .map_or_else(|| Err(AssetCO2EmissionsError::AssetIdOverflow), |id| Ok(id))?;
+                .ok_or(AssetCO2EmissionsError::AssetIdOverflow)?;
             Ok(asset_id)
         }
 
@@ -688,10 +684,7 @@ mod asset_co2_emissions {
         fn list_assets(&self, owner: AccountId) -> Vec<AssetId> {
             match self.owned_assets.get(&owner) {
                 None => Vec::new(),
-                Some(owned_assets) => owned_assets
-                    .into_iter()
-                    .map(|asset| *asset)
-                    .collect::<Vec<AssetId>>(),
+                Some(owned_assets) => owned_assets.iter().copied().collect::<Vec<AssetId>>(),
             }
         }
 
@@ -710,12 +703,12 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             let caller = self.env().caller();
 
-            let _ = self.ensure_proper_metadata(&metadata)?;
-            let _ = self.ensure_emissions_correct(&emissions)?;
-            let _ = self.ensure_proper_parent(&parent, &caller)?;
+            self.ensure_proper_metadata(&metadata)?;
+            self.ensure_emissions_correct(&emissions)?;
+            self.ensure_proper_parent(&parent, &caller)?;
 
             let asset_id: u128 = self.next_id()?;
-            let _ = self.ensure_not_exist(&asset_id)?;
+            self.ensure_not_exist(&asset_id)?;
 
             self.insert_owned_asset(&to, &asset_id)?;
 
@@ -746,10 +739,10 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             let from = self.env().caller();
 
-            let _ = self.ensure_exists(&id)?;
-            let _ = self.ensure_owner(&id, &from)?;
-            let _ = self.ensure_not_paused(&id)?;
-            let _ = self.ensure_emissions_correct(&emissions)?;
+            self.ensure_exists(&id)?;
+            self.ensure_owner(&id, &from)?;
+            self.ensure_not_paused(&id)?;
+            self.ensure_emissions_correct(&emissions)?;
 
             self.remove_owned_asset(&from, &id)?;
             self.insert_owned_asset(&to, &id)?;
@@ -766,8 +759,8 @@ mod asset_co2_emissions {
 
         #[ink(message)]
         fn pause(&mut self, id: AssetId) -> Result<(), AssetCO2EmissionsError> {
-            let _ = self.ensure_owner(&id, &self.env().caller())?;
-            let _ = self.ensure_not_paused(&id)?;
+            self.ensure_owner(&id, &self.env().caller())?;
+            self.ensure_not_paused(&id)?;
 
             self.paused.insert(id, &true);
             self.env().emit_event(Paused { id });
@@ -786,10 +779,10 @@ mod asset_co2_emissions {
             id: AssetId,
             emissions: CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError> {
-            let _ = self.ensure_exists(&id)?;
-            let _ = self.ensure_owner(&id, &self.env().caller())?;
-            let _ = self.ensure_not_paused(&id)?;
-            let _ = self.ensure_emissions_item_correct(&emissions)?;
+            self.ensure_exists(&id)?;
+            self.ensure_owner(&id, &self.env().caller())?;
+            self.ensure_not_paused(&id)?;
+            self.ensure_emissions_item_correct(&emissions)?;
 
             // Save CO2 emissions & emit corresponding events
             self.save_new_emissions(&id, &Vec::from([emissions]))?;
