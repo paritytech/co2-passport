@@ -466,12 +466,13 @@ mod asset_co2_emissions {
             owner: &AccountId,
             asset_id: &AssetId,
         ) -> Result<(), AssetCO2EmissionsError> {
-            if !self.owned_assets.contains_key(owner) {
-                self.owned_assets.insert(*owner, BTreeSet::new());
-            }
-
             match self.owned_assets.get_mut(owner) {
-                None => Err(AssetCO2EmissionsError::InvalidSmartContractState),
+                None => {
+                    let mut new_owned_assets = BTreeSet::new();
+                    new_owned_assets.insert(*asset_id);
+                    self.owned_assets.insert(*owner, new_owned_assets);
+                    Ok(())
+                },
                 Some(owned_assets) => {
                     owned_assets.insert(*asset_id);
                     Ok(())
@@ -494,16 +495,16 @@ mod asset_co2_emissions {
         }
 
         fn ensure_not_exist(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
-            match self.asset_owner.get(id) {
-                None => Ok(()),
-                Some(_owner) => Err(AssetCO2EmissionsError::AssetAlreadyExists),
+            match self.asset_owner.contains(id) {
+                false => Ok(()),
+                true => Err(AssetCO2EmissionsError::AssetAlreadyExists),
             }
         }
 
         fn ensure_exists(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
-            match self.asset_owner.get(id) {
-                Some(_owner) => Ok(()),
-                None => Err(AssetCO2EmissionsError::AssetNotFound),
+            match self.asset_owner.contains(id) {
+                true => Ok(()),
+                false => Err(AssetCO2EmissionsError::AssetNotFound),
             }
         }
 
@@ -650,7 +651,7 @@ mod asset_co2_emissions {
                 // So it must contain asset and its childrn -- unwrap must be safe
                 // It has been confirmed in previous test cases
                 // If not, we need to capture that sth is wrong with the smart contract
-                let asset: AssetDetails = self.get_asset(asset_id).unwrap();
+                let asset: AssetDetails = self.get_asset(asset_id).expect("Asset existence already checked");
                 let parent_details = asset.3;
                 tree_path.push(asset);
                 match parent_details {
@@ -798,10 +799,8 @@ mod asset_co2_emissions {
                 None => None,
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
-                    // Must exist
-                    let emissions = self.get_asset_emissions(id).unwrap();
-                    // Must exist
-                    let parent = self.get_parent_details(id).unwrap();
+                    let emissions = self.get_asset_emissions(id).expect("Must exist");
+                    let parent = self.get_parent_details(id).expect("Must exist");
 
                     Some((id, metadata, emissions, parent))
                 }
