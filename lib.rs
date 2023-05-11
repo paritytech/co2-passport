@@ -479,7 +479,7 @@ mod asset_co2_emissions {
                     new_owned_assets.insert(*asset_id);
                     self.owned_assets.insert(*owner, new_owned_assets);
                     Ok(())
-                },
+                }
                 Some(owned_assets) => {
                     owned_assets.insert(*asset_id);
                     Ok(())
@@ -595,7 +595,7 @@ mod asset_co2_emissions {
             emissions: &Vec<CO2Emissions>,
         ) -> Result<(), AssetCO2EmissionsError> {
             if emissions.len() > MAX_EMISSIONS_PER_ASSET as usize {
-                return Err(AssetCO2EmissionsError::EmissionsOverflow)
+                return Err(AssetCO2EmissionsError::EmissionsOverflow);
             }
             Ok(())
         }
@@ -622,12 +622,16 @@ mod asset_co2_emissions {
             metadata: &Metadata,
         ) -> Result<(), AssetCO2EmissionsError> {
             if metadata.len() > MAX_METADATA_LENGTH as usize {
-                return Err(AssetCO2EmissionsError::MetadataOverflow)
+                return Err(AssetCO2EmissionsError::MetadataOverflow);
             }
             Ok(())
         }
 
-        fn save_new_emissions(&mut self, id: &AssetId, emissions: &Vec<CO2Emissions>) -> Result<(), AssetCO2EmissionsError> {
+        fn save_new_emissions(
+            &mut self,
+            id: &AssetId,
+            emissions: &Vec<CO2Emissions>,
+        ) -> Result<(), AssetCO2EmissionsError> {
             let mut updated_emissions = self.co2_emissions.get(id).unwrap_or(Vec::new());
             updated_emissions.extend_from_slice(emissions);
 
@@ -664,7 +668,9 @@ mod asset_co2_emissions {
                 // So it must contain asset and its childrn -- unwrap must be safe
                 // It has been confirmed in previous test cases
                 // If not, we need to capture that sth is wrong with the smart contract
-                let asset: AssetDetails = self.get_asset(asset_id).expect("Asset existence already checked");
+                let asset: AssetDetails = self
+                    .get_asset(asset_id)
+                    .expect("Asset existence already checked");
                 let parent_details = asset.3;
                 tree_path.push(asset);
                 match parent_details {
@@ -2259,7 +2265,7 @@ mod asset_co2_emissions {
             let emissions_balanced = true;
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
-            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1{
+            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
                 let e = 1u128;
                 let item = new_emissions(
                     emissions_category,
@@ -2268,7 +2274,7 @@ mod asset_co2_emissions {
                     e,
                     timestamp,
                 );
-               emissions.push(item);
+                emissions.push(item);
             }
 
             let asset_id = 1;
@@ -2276,8 +2282,10 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert_eq!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent), Err(AssetCO2EmissionsError::EmissionsOverflow));
+            assert_eq!(
+                contract.blast(owner, metadata.clone(), emissions.clone(), parent),
+                Err(AssetCO2EmissionsError::EmissionsOverflow)
+            );
 
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::new()),
@@ -2309,7 +2317,7 @@ mod asset_co2_emissions {
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
             for _ in 0..MAX_EMISSIONS_PER_ASSET {
-               emissions.push(item.clone());
+                emissions.push(item.clone());
             }
 
             let asset_id = 1;
@@ -2318,7 +2326,8 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent).is_ok());
+                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .is_ok());
 
             assert_eq!(
                 contract.add_emissions(asset_id, item.clone()),
@@ -2329,7 +2338,6 @@ mod asset_co2_emissions {
                 contract.transfer(accounts.bob, asset_id, Vec::from([item.clone()])),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
-
         }
 
         #[ink::test]
@@ -2421,7 +2429,7 @@ mod asset_co2_emissions {
             let emissions_balanced = true;
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
-            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1{
+            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
                 let e = 1u128;
                 let item = new_emissions(
                     emissions_category,
@@ -2430,7 +2438,7 @@ mod asset_co2_emissions {
                     e,
                     timestamp,
                 );
-               emissions.push(item);
+                emissions.push(item);
             }
 
             let asset_id = 1;
@@ -2438,8 +2446,10 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert_eq!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent), Err(AssetCO2EmissionsError::MetadataOverflow));
+            assert_eq!(
+                contract.blast(owner, metadata.clone(), emissions.clone(), parent),
+                Err(AssetCO2EmissionsError::MetadataOverflow)
+            );
 
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::new()),
