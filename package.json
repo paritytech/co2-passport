@@ -1,0 +1,16 @@
+{
+  "name": "bcg-co2-passports",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "cucumber-js"
+  },
+  "dependencies": {
+    "@polkadot/api": "^10.4.1",
+    "@polkadot/api-contract": "^10.4.1"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "cucumber": "^6.0.7"
+  }
+}
