@@ -18,7 +18,7 @@ mod asset_co2_emissions {
     pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
     pub type Description = Vec<u8>;
 
-    pub const MAX_METADATA_LENGTH: u16 = 250;
+    pub const MAX_METADATA_LENGTH: u16 = 1024; // 1KB
     pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
 
     #[derive(Copy, Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
@@ -59,8 +59,6 @@ mod asset_co2_emissions {
         InvalidAssetRelation,
         // When an Asset with ID already exists.
         AssetAlreadyExists,
-        // Invalid smart contract state
-        InvalidSmartContractState,
     }
 
     /// The AccessControl error types.
@@ -488,13 +486,11 @@ mod asset_co2_emissions {
             owner: &AccountId,
             asset_id: &AssetId,
         ) -> Result<(), AssetCO2EmissionsError> {
-            match self.owned_assets.get_mut(owner) {
-                None => Err(AssetCO2EmissionsError::InvalidSmartContractState),
-                Some(owned_assets) => {
-                    owned_assets.remove(asset_id);
-                    Ok(())
-                }
-            }
+            self.owned_assets
+                .get_mut(owner)
+                .expect("Owned assets must exist when removing during asset transfer")
+                .remove(asset_id);
+            Ok(())
         }
 
         fn ensure_not_exist(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
@@ -811,8 +807,8 @@ mod asset_co2_emissions {
                 None => None,
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
-                    let emissions = self.get_asset_emissions(id).expect("Must exist");
-                    let parent = self.get_parent_details(id).expect("Must exist");
+                    let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
+                    let parent = self.get_parent_details(id).expect("Parent must exist");
 
                     Some((id, metadata, emissions, parent))
                 }
@@ -917,7 +913,7 @@ mod asset_co2_emissions {
             expected_parent: ParentDetails,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
-                .expect("encountered invalid contract event data buffer");
+                .expect("Encountered invalid contract event data buffer");
             if let Event::Blasted(Blasted {
                 id,
                 metadata,
@@ -953,7 +949,7 @@ mod asset_co2_emissions {
 
         fn assert_paused_event(event: &test::EmittedEvent, expected_id: AssetId) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
-                .expect("encountered invalid contract event data buffer");
+                .expect("Encountered invalid contract event data buffer");
             if let Event::Paused(Paused { id }) = decoded_event {
                 assert_eq!(id, expected_id, "encountered invalid Paused.id");
             } else {
@@ -982,7 +978,7 @@ mod asset_co2_emissions {
             expected_emissions: u128,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
-                .expect("encountered invalid contract event data buffer");
+                .expect("Encountered invalid contract event data buffer");
             if let Event::Emission(Emission {
                 id,
                 category,
@@ -1033,7 +1029,7 @@ mod asset_co2_emissions {
             expected_to: AccountId,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
-                .expect("encountered invalid contract event data buffer");
+                .expect("Encountered invalid contract event data buffer");
             if let Event::Transfer(Transfer { id, from, to }) = decoded_event {
                 assert_eq!(id, expected_id, "encountered invalid Transfer.id");
                 assert_eq!(from, expected_from, "encountered invalid Transfer.from");
@@ -2270,7 +2266,7 @@ mod asset_co2_emissions {
                 emissions.push(item);
             }
 
-            let asset_id = 1;
+            let expected_asset_id = 1;
             let owner = accounts.alice;
 
             set_caller(owner);
@@ -2280,10 +2276,7 @@ mod asset_co2_emissions {
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
 
-            assert_eq!(
-                contract.transfer(accounts.bob, asset_id, Vec::new()),
-                Err(AssetCO2EmissionsError::AssetNotFound)
-            );
+            assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
@@ -2434,7 +2427,7 @@ mod asset_co2_emissions {
                 emissions.push(item);
             }
 
-            let asset_id = 1;
+            let expected_asset_id = 1;
             let owner = accounts.alice;
 
             set_caller(owner);
@@ -2444,10 +2437,7 @@ mod asset_co2_emissions {
                 Err(AssetCO2EmissionsError::MetadataOverflow)
             );
 
-            assert_eq!(
-                contract.transfer(accounts.bob, asset_id, Vec::new()),
-                Err(AssetCO2EmissionsError::AssetNotFound)
-            );
+            assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
