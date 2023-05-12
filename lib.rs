@@ -41,6 +41,8 @@ mod asset_co2_emissions {
         AlreadyPaused,
         // When not an Asset's Owner wants to take any action over the Asset.
         NotOwner,
+        // When the calling account is not the owner of the contract
+        NotContractOwner,
         // When an Asset is not in a `Paused` state.
         NotPaused,
         // When an Asset's parent is not found.
@@ -442,8 +444,9 @@ mod asset_co2_emissions {
     }
 
     #[ink(storage)]
-    #[derive(Default)]
+    // #[derive(Default)]
     pub struct InfinityAsset {
+        contract_owner: AccountId,
         next_id: AssetId,
         asset_owner: Mapping<AssetId, AccountId>,
         owned_assets: BTreeMap<AccountId, BTreeSet<AssetId>>,
@@ -457,9 +460,34 @@ mod asset_co2_emissions {
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
+                contract_owner: Self::env().caller(),
                 next_id: 1,
-                ..Default::default()
+                asset_owner: Mapping::new(),
+                owned_assets: BTreeMap::new(),
+                co2_emissions: Mapping::new(),
+                metadata: Mapping::new(),
+                paused: Mapping::new(),
+                parent: Mapping::new(),
             }
+        }
+
+        #[ink(message)]
+        pub fn set_contract_owner(&mut self, new_owner: AccountId) -> Result<(), AssetCO2EmissionsError> {
+            // Only the owner of the contract may set the new owner
+            self.ensure_contract_owner(self.env().caller())?;
+            self.contract_owner = new_owner;
+            Ok(())
+        }
+
+        /// Modifies the code which is used to execute calls to this contract address (`AccountId`).
+        #[ink(message)]
+        pub fn set_code(&mut self, code_hash: [u8; 32]) {
+            self.ensure_contract_owner(self.env().caller()).expect("Only contract owner can set code hash");
+
+            ink::env::set_code_hash(&code_hash).unwrap_or_else(|err| {
+                panic!("Failed to `set_code_hash` to {code_hash:?} due to {err:?}")
+            });
+            ink::env::debug_println!("Switched code hash to {:?}.", code_hash);
         }
 
         fn insert_owned_asset(
@@ -504,6 +532,13 @@ mod asset_co2_emissions {
             match self.asset_owner.contains(id) {
                 true => Ok(()),
                 false => Err(AssetCO2EmissionsError::AssetNotFound),
+            }
+        }
+
+        fn ensure_contract_owner(&self, caller: AccountId) -> Result<(), AssetCO2EmissionsError> {
+            match caller.eq(&self.contract_owner) {
+                true => Ok(()),
+                false => Err(AssetCO2EmissionsError::NotContractOwner),
             }
         }
 
@@ -1061,6 +1096,42 @@ mod asset_co2_emissions {
                     "encountered invalid topic at {n}"
                 );
             }
+        }
+
+
+        #[ink::test]
+        fn should_set_new_owner() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            assert_eq!(contract.contract_owner, accounts.alice);
+
+            assert!(contract.set_contract_owner(accounts.bob).is_ok());
+            assert_eq!(contract.contract_owner, accounts.bob);
+        }
+
+        #[ink::test]
+        fn should_reject_set_new_owner() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            assert_eq!(contract.contract_owner, accounts.alice);
+
+            set_caller(accounts.bob);
+            assert_eq!(contract.set_contract_owner(accounts.bob), Err(AssetCO2EmissionsError::NotContractOwner));
+            assert_eq!(contract.contract_owner, accounts.alice);
+        }
+
+        #[ink::test]
+        #[should_panic(expected = "Only contract owner can set code hash")]
+        fn should_reject_set_code() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            assert_eq!(contract.contract_owner, accounts.alice);
+
+            set_caller(accounts.bob);
+            contract.set_code([0x0; 32]);
         }
 
         #[ink::test]
