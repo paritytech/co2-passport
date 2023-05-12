@@ -444,7 +444,6 @@ mod asset_co2_emissions {
     }
 
     #[ink(storage)]
-    // #[derive(Default)]
     pub struct InfinityAsset {
         contract_owner: AccountId,
         next_id: AssetId,
@@ -2848,12 +2847,58 @@ mod asset_co2_emissions {
     /// - Are running a Substrate node which contains `pallet-contracts` in the background
     #[cfg(all(test, feature = "e2e-tests"))]
     mod e2e_tests {
+        use super::*;
+        use ink_e2e::build_message;
         /// The End-to-End test `Result` type.
         type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-        /// Sample e2e test
-        #[ink_e2e::test]
-        async fn sample_e2e_test(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+
+        #[ink_e2e::test(additional_contracts = "./integration-tests/updated-contract/Cargo.toml")]
+        async fn set_code_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
+            // Given
+            let constructor = InfinityAssetRef::new();
+            let contract_acc_id = client
+                .instantiate("asset_co2_emissions", &ink_e2e::alice(), constructor, 0, None)
+                .await
+                .expect("instantiate failed")
+                .account_id;
+
+            let bob_account = ink_e2e::account_id(ink_e2e::AccountKeyring::Bob);
+
+            let get = build_message::<InfinityAssetRef>(contract_acc_id.clone())
+                .call(|co2| co2.set_contract_owner(bob_account));
+            let get_res = client.call_dry_run(&ink_e2e::alice(), &get, 0, None).await;
+            assert!(matches!(get_res.return_value(), Ok(_)));
+
+            // When
+            let new_code_hash = client
+                .upload("updated_contract", &ink_e2e::alice(), None)
+                .await
+                .expect("uploading `updated_contract` failed")
+                .code_hash;
+
+            let new_code_hash = new_code_hash.as_ref().try_into().unwrap();
+            let set_code = build_message::<InfinityAssetRef>(contract_acc_id.clone())
+                .call(|co2| co2.set_code(new_code_hash));
+
+            let _set_code_result = client
+                .call(&ink_e2e::alice(), set_code, 0, None)
+                .await
+                .expect("`set_code` failed");
+
+            // Then
+            // Note that our contract's `AccountId` (so `contract_acc_id`) has stayed the
+            // same between updates!
+            let set_owner = build_message::<InfinityAssetRef>(contract_acc_id.clone())
+                .call(|co2| co2.set_contract_owner(bob_account));
+
+            let result = client
+                .call(&ink_e2e::bob(), set_owner, 0, None)
+                .await.expect("`set_owner` failed");
+
+            // AlreadyPaused error is thrown in updated contract when `set_contract_owner` is called
+            assert_eq!(result.return_value(), Err(AssetCO2EmissionsError::AlreadyPaused));
+
             Ok(())
         }
     }
