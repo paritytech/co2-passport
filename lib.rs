@@ -471,7 +471,10 @@ mod asset_co2_emissions {
         }
 
         #[ink(message)]
-        pub fn set_contract_owner(&mut self, new_owner: AccountId) -> Result<(), AssetCO2EmissionsError> {
+        pub fn set_contract_owner(
+            &mut self,
+            new_owner: AccountId,
+        ) -> Result<(), AssetCO2EmissionsError> {
             // Only the owner of the contract may set the new owner
             self.ensure_contract_owner(self.env().caller())?;
             self.contract_owner = new_owner;
@@ -481,7 +484,8 @@ mod asset_co2_emissions {
         /// Modifies the code which is used to execute calls to this contract address (`AccountId`).
         #[ink(message)]
         pub fn set_code(&mut self, code_hash: [u8; 32]) {
-            self.ensure_contract_owner(self.env().caller()).expect("Only contract owner can set code hash");
+            self.ensure_contract_owner(self.env().caller())
+                .expect("Only contract owner can set code hash");
 
             ink::env::set_code_hash(&code_hash).unwrap_or_else(|err| {
                 panic!("Failed to `set_code_hash` to {code_hash:?} due to {err:?}")
@@ -1097,7 +1101,6 @@ mod asset_co2_emissions {
             }
         }
 
-
         #[ink::test]
         fn should_set_new_owner() {
             let accounts = get_accounts();
@@ -1117,7 +1120,10 @@ mod asset_co2_emissions {
             assert_eq!(contract.contract_owner, accounts.alice);
 
             set_caller(accounts.bob);
-            assert_eq!(contract.set_contract_owner(accounts.bob), Err(AssetCO2EmissionsError::NotContractOwner));
+            assert_eq!(
+                contract.set_contract_owner(accounts.bob),
+                Err(AssetCO2EmissionsError::NotContractOwner)
+            );
             assert_eq!(contract.contract_owner, accounts.alice);
         }
 
@@ -2852,13 +2858,18 @@ mod asset_co2_emissions {
         /// The End-to-End test `Result` type.
         type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-
         #[ink_e2e::test(additional_contracts = "./integration-tests/updated-contract/Cargo.toml")]
         async fn set_code_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
             // Given
             let constructor = InfinityAssetRef::new();
             let contract_acc_id = client
-                .instantiate("asset_co2_emissions", &ink_e2e::alice(), constructor, 0, None)
+                .instantiate(
+                    "asset_co2_emissions",
+                    &ink_e2e::alice(),
+                    constructor,
+                    0,
+                    None,
+                )
                 .await
                 .expect("instantiate failed")
                 .account_id;
@@ -2894,10 +2905,14 @@ mod asset_co2_emissions {
 
             let result = client
                 .call(&ink_e2e::bob(), set_owner, 0, None)
-                .await.expect("`set_owner` failed");
+                .await
+                .expect("`set_owner` failed");
 
             // AlreadyPaused error is thrown in updated contract when `set_contract_owner` is called
-            assert_eq!(result.return_value(), Err(AssetCO2EmissionsError::AlreadyPaused));
+            assert_eq!(
+                result.return_value(),
+                Err(AssetCO2EmissionsError::AlreadyPaused)
+            );
 
             Ok(())
         }
