@@ -1,15 +1,16 @@
 const { Given, When, Then } = require("cucumber");
 const { expect } = require("chai");
 
- Given('I have the environment prepared.', function () {
-     this.prepareEnvironment();
+ Given('I have the environment prepared.', async function () {
+     await this.prepareEnvironment();
  });
 
- When('{string} creates an asset with metadata: {string} and {string} emissions with the amount: {int} Grams per kilo CO2 emitted from date: {int}.', function (string, string, string, int, int) {
-     // this.blastAsset(string, string, string, int, int);
+ When('{string} creates an asset with metadata: {string} and {string} emissions with the amount: {int} Grams per kilo CO2 emitted from date: {int}.', async function (caller, metadata, emission_category, emissions, date) {
+     await this.blastAsset(caller, metadata, emission_category, emissions, date);
      this.addTo("I");
  });
 
- Then('the result should be the number {string}', function (string) {
-   expect(this.result).to.eql(string);
+ Then('the following events will be emitted:', function (jsonString) {
+    let events = JSON.parse(jsonString);
+    expect(this.events).to.deep.equal(events);
  });
