@@ -9,8 +9,8 @@ const { BN, BN_ONE } = require("@polkadot/util");
 const contractAbi = require("/Users/bidzyyys/work/bcg/bcg-co2-passport/target/ink/asset_co2_emissions.json");
 const contract = JSON.parse(fs.readFileSync("/Users/bidzyyys/work/bcg/bcg-co2-passport/target/ink/asset_co2_emissions.contract"));
 
-const REF_TIME = new BN(327_248_002);
-const PROOF_SIZE = new BN(100);
+const REF_TIME = new BN(300_000_000_000);
+const PROOF_SIZE = new BN(1000000);
 
 class UserStoryWorld {
     constructor() {
@@ -20,6 +20,7 @@ class UserStoryWorld {
         this.firstOperand = '';
         this.secondOperand = '';
         this.result = '';
+        this.events = [];
         this.accounts = {};
         this.keyring = new Keyring({ type: 'sr25519' });
         this.sendTxOptions = null;
@@ -41,9 +42,9 @@ class UserStoryWorld {
         };
 
         await this.deploySmartContract();
-        await this.initiateAccountWithBalance("Seller", 1_000_000_000);
-        await this.initiateAccountWithBalance("Buyer", 1_000_000_000);
-        await this.initiateAccountWithBalance("Eve", 1_000_000_000);
+        await this.initiateAccountWithBalance("Seller", 1_000_000_000_000);
+        await this.initiateAccountWithBalance("Buyer", 1_000_000_000_000);
+        await this.initiateAccountWithBalance("Eve", 1_000_000_000_000);
 
         this.setFirstOperand("I");
     }
@@ -53,7 +54,14 @@ class UserStoryWorld {
 
         const tx = code.tx.new(this.sendTxOptions);
 
-        await this.signAndSend(this.sudo, tx, result => this.setContractAddress(result));
+        // Wait for the smart contract to deploy, and contract address set
+        await new Promise((resolve) => {
+            this.signAndSend(this.sudo, tx, result =>
+                {
+                    this.setContractAddress(result)
+                    resolve();
+                })
+        });
     }
 
     async blastAsset(account_name, metadata, emission_category, emissions, date) {
@@ -63,7 +71,7 @@ class UserStoryWorld {
         const assetParent = null;
         const assetEmissions = [
             {
-                "category": emissions_category,
+                "category": emission_category,
                 "primary": true,
                 "balanced": true,
                 "date": date,
@@ -73,10 +81,16 @@ class UserStoryWorld {
 
         let blastExtrinsic = this.contract.tx["assetCO2Emissions::blast"](
             this.sendTxOptions,
-            owner, metadata, emissions, parent
+            assetOwner, metadata, assetEmissions, assetParent
         );
 
-        signAndSend(sender, tx, doNothing);
+
+        await new Promise((resolve) => {
+            this.signAndSend(sender, blastExtrinsic, result => {
+                this.events = this.getEvents(result)
+                resolve();
+            });
+        });
     }
 
     async initiateAccountWithBalance(account_name, balance) {
@@ -98,7 +112,22 @@ class UserStoryWorld {
     }
 
     doNothing(result) {
-        console.log(result);
+    //    console.log(result)
+
+    }
+
+    getEvents(result) {
+        let events = [];
+        for (const event of result.contractEvents) {
+            const eventItem = {
+                event: {
+                    name: event.event.identifier,
+                    args: event.args.map((v) => v.toHuman()),
+                },
+            };
+            events.push(eventItem);
+        }
+        return events;
     }
 
     setContractAddress( { contract } ) {
@@ -115,7 +144,7 @@ class UserStoryWorld {
 
             if (status.isInBlock || status.isFinalized) {
                 if (dispatchError) {
-                    throw new Error(`Tx failed with error: ${dispatchError.toJSON()}`);
+                    throw new Error(`Tx failed with error: ${dispatchError}`);
                 }  else {
                     callback(result);
                 }

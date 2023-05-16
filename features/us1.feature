@@ -11,4 +11,10 @@ Feature: User Story 1
 
     When "Seller" creates an asset with metadata: "string" and "Upstream" emissions with the amount: 10 Grams per kilo CO2 emitted from date: 1682632800.
 
-    Then the result should be the number "II"
+    Then the following events will be emitted:
+    """
+    [
+      {"event":{"name":"Blasted","args":["1","string","5Eq16Fi87CLB8KKsANzRo1XCc93FhgJHfPH1aY6H4cKuiTFj",null]}},
+      {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
+    ]
+    """
