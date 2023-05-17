@@ -7,7 +7,6 @@ const { expect } = require("chai");
 
  When('{string} creates an asset with metadata: {string} and {string} emissions with the amount: {int} Grams per kilo CO2 emitted from date: {int}.', async function (caller, metadata, emission_category, emissions, date) {
      await this.blastAsset(caller, metadata, emission_category, emissions, date);
-     this.addTo("I");
  });
 
  Then('the following events will be emitted:', function (jsonString) {
@@ -26,7 +25,6 @@ const { expect } = require("chai");
   When('{string} transfers asset with ID {int} to {string} with new {string} emission with the amount of {int} grams per kilo on the date {int}',
   async function (seller, assetId, buyer, emission_category, emissions, date) {
         await this.transferAsset(seller, assetId, buyer, emission_category, emissions, date);
-        console.log(JSON.stringify(this.events));
   });
 
   Then('the following transfer events will be emitted:', function (jsonString) {
