@@ -9,12 +9,33 @@ Feature: User Story 1
   Scenario: Seller creates an asset
     Given I have the environment prepared.
 
-    When "Seller" creates an asset with metadata: "string" and "Upstream" emissions with the amount: 10 Grams per kilo CO2 emitted from date: 1682632800.
+    When "Seller" creates an asset with metadata: "asset metadata" and "Upstream" emissions with the amount: 10 Grams per kilo CO2 emitted from date: 1682632800.
 
     Then the following events will be emitted:
     """
     [
-      {"event":{"name":"Blasted","args":["1","string","5Eq16Fi87CLB8KKsANzRo1XCc93FhgJHfPH1aY6H4cKuiTFj",null]}},
+      {"event":{"name":"Blasted","args":["1","asset metadata","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
       {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
+    ]
+    """
+
+  Scenario: Seller tranfers asset to Buyer
+    Given the "Seller" has blasted the asset with the following parameters:
+    """
+    {
+      "metadata": "asset metadata",
+      "emission_category": "Upstream",
+      "emissions": 10,
+      "date": 1682632800
+    }
+    """
+
+    When "Seller" transfers asset with ID 1 to "Buyer" with new "Transport" emission with the amount of 10 grams per kilo on the date 1682632800
+
+    Then the following transfer events will be emitted:
+    """
+    [
+      {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
+      {"event":{"name":"Emission","args":["1","Transport",true,true,"1,682,632,800","10"]}}
     ]
     """
