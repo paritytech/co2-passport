@@ -14,3 +14,22 @@ const { expect } = require("chai");
     let events = JSON.parse(jsonString);
     expect(this.events).to.deep.equal(events);
  });
+
+ Given('the {string} has blasted the asset with the following parameters:', async function (caller, jsonString) {
+    let asset = JSON.parse(jsonString);
+
+    await this.prepareEnvironment();
+    await this.blastAsset(caller, asset.metadata, asset.emission_category, asset.emissions, asset.date);
+
+  });
+
+  When('{string} transfers asset with ID {int} to {string} with new {string} emission with the amount of {int} grams per kilo on the date {int}',
+  async function (seller, assetId, buyer, emission_category, emissions, date) {
+        await this.transferAsset(seller, assetId, buyer, emission_category, emissions, date);
+        console.log(JSON.stringify(this.events));
+  });
+
+  Then('the following transfer events will be emitted:', function (jsonString) {
+    let events = JSON.parse(jsonString);
+    expect(this.events).to.deep.equal(events);
+  });

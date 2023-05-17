@@ -6,11 +6,14 @@ const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { mnemonicGenerate } = require("@polkadot/util-crypto")
 const { BN, BN_ONE } = require("@polkadot/util");
 
-const contractAbi = require("/Users/bidzyyys/work/bcg/bcg-co2-passport/target/ink/asset_co2_emissions.json");
-const contract = JSON.parse(fs.readFileSync("/Users/bidzyyys/work/bcg/bcg-co2-passport/target/ink/asset_co2_emissions.contract"));
+const contractAbi = require("../../target/ink/asset_co2_emissions.json");
+const contract = JSON.parse(fs.readFileSync("./target/ink/asset_co2_emissions.contract"));
 
 const REF_TIME = new BN(300_000_000_000);
 const PROOF_SIZE = new BN(1000000);
+
+// dev mnemonic
+const MNENOMIC = 'bottom drive obey lake curtain smoke basket hold race lonely fit walk';
 
 class UserStoryWorld {
     constructor() {
@@ -93,8 +96,36 @@ class UserStoryWorld {
         });
     }
 
+    async transferAsset(sender_name, assetId, recipient_name, emission_category, emissions, date) {
+        const sender = this.accounts[sender_name];
+        const receiver = this.accounts[recipient_name];
+
+        const assetEmissions = [
+            {
+                "category": emission_category,
+                "primary": true,
+                "balanced": true,
+                "date": date,
+                "emissions": emissions
+            }
+        ];
+
+        let transferExtrinsic = this.contract.tx["assetCO2Emissions::transfer"](
+            this.sendTxOptions,
+            receiver.address, assetId, assetEmissions
+        );
+
+
+        await new Promise((resolve) => {
+            this.signAndSend(sender, transferExtrinsic, result => {
+                this.events = this.getEvents(result)
+                resolve();
+            });
+        });
+    }
+
     async initiateAccountWithBalance(account_name, balance) {
-        const account = this.keyring.addFromUri(mnemonicGenerate());
+        const account = this.keyring.addFromUri(MNENOMIC + "//" + account_name);
         this.accounts[account_name] = account;
 
         const extrinsic = this.api.tx.sudo.sudo(this.api.tx.balances.setBalance(account.address, balance, 0));
