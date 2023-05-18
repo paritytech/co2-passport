@@ -35,7 +35,7 @@ class UserStoryWorld {
         const wsProvider = new WsProvider("ws://127.0.0.1:9944");
         this.api = await ApiPromise.create({ provider: wsProvider });
 
-        const storageDepositLimit = null;
+        const storageDepositLimit = 1_000_000_000_000;
         this.sendTxOptions = {
             gasLimit: this.api.registry.createType("WeightV2", {
                 refTime: REF_TIME,
@@ -45,11 +45,9 @@ class UserStoryWorld {
         };
 
         await this.deploySmartContract();
-        await this.initiateAccountWithBalance("Seller", 1_000_000_000_000);
-        await this.initiateAccountWithBalance("Buyer", 1_000_000_000_000);
-        await this.initiateAccountWithBalance("Eve", 1_000_000_000_000);
-
-        this.setFirstOperand("I");
+        await this.initiateAccountWithBalance("Seller", 100_000_000_000_000);
+        await this.initiateAccountWithBalance("Buyer", 100_000_000_000_000);
+        await this.initiateAccountWithBalance("Eve", 100_000_000_000_000);
     }
 
     async deploySmartContract() {
@@ -59,26 +57,24 @@ class UserStoryWorld {
 
         // Wait for the smart contract to deploy, and contract address set
         await new Promise((resolve) => {
-            this.signAndSend(this.sudo, tx, result =>
-                {
-                    this.setContractAddress(result)
-                    resolve();
-                })
+            this.signAndSend(this.sudo, tx, result => {
+                this.setContractAddress(result)
+                resolve();
+            })
         });
     }
 
-    async blastAsset(account_name, metadata, emission_category, emissions, date) {
+    async blastAsset(account_name, metadata, assetParent, emissionInfo) {
         const sender = this.accounts[account_name];
 
         const assetOwner = sender.address;
-        const assetParent = null;
         const assetEmissions = [
             {
-                "category": emission_category,
-                "primary": true,
-                "balanced": true,
-                "date": date,
-                "emissions": emissions
+                "category": emissionInfo.category,
+                "primary": emissionInfo.primary,
+                "balanced": emissionInfo.balanced,
+                "date": emissionInfo.date,
+                "emissions": emissionInfo.emissions
             }
         ];
 
@@ -96,13 +92,13 @@ class UserStoryWorld {
         });
     }
 
-    async transferAsset(sender_name, assetId, recipient_name, emission_category, emissions, date) {
-        const sender = this.accounts[sender_name];
-        const receiver = this.accounts[recipient_name];
+    async transferAsset(senderName, assetId, recipientName, emissionCategory, emissions, date) {
+        const sender = this.accounts[senderName];
+        const receiver = this.accounts[recipientName];
 
         const assetEmissions = [
             {
-                "category": emission_category,
+                "category": emissionCategory,
                 "primary": true,
                 "balanced": true,
                 "date": date,
@@ -124,26 +120,44 @@ class UserStoryWorld {
         });
     }
 
-    async initiateAccountWithBalance(account_name, balance) {
-        const account = this.keyring.addFromUri(MNENOMIC + "//" + account_name);
-        this.accounts[account_name] = account;
+    async pauseAsset(senderName, assetId) {
+        const sender = this.accounts[senderName];
+
+        let pauseExtrinsic = this.contract.tx["assetCO2Emissions::pause"](
+            this.sendTxOptions,
+            assetId
+        );
+
+
+        await new Promise((resolve) => {
+            this.signAndSend(sender, pauseExtrinsic, result => {
+                this.events = this.getEvents(result)
+                resolve();
+            });
+        });
+    }
+
+    async queryEmissions(senderName, assetId) {
+        const sender = this.accounts[senderName];
+
+        let output = await this.contract.query["assetCO2Emissions::queryEmissions"](
+            sender, assetId,
+            this.sendTxOptions
+          );
+          console.log(output);
+    }
+
+    async initiateAccountWithBalance(accountName, balance) {
+        const account = this.keyring.addFromUri(MNENOMIC + "//" + accountName);
+        this.accounts[accountName] = account;
 
         const extrinsic = this.api.tx.sudo.sudo(this.api.tx.balances.setBalance(account.address, balance, 0));
 
         await this.signAndSend(this.sudo, extrinsic, this.doNothing);
     }
 
-    setFirstOperand(number) {
-        this.firstOperand = number;
-    }
-
-    addTo(operand) {
-        this.secondOperand = operand;
-        this.result = 'II';
-    }
-
     doNothing(result) {
-    //    console.log(result)
+        //    console.log(result)
 
     }
 
@@ -161,7 +175,7 @@ class UserStoryWorld {
         return events;
     }
 
-    setContractAddress( { contract } ) {
+    setContractAddress({ contract }) {
         const contractAddress = contract.address.toString();
 
         // Proper way of creating Contract JS Object
@@ -175,8 +189,9 @@ class UserStoryWorld {
 
             if (status.isInBlock || status.isFinalized) {
                 if (dispatchError) {
-                    throw new Error(`Tx failed with error: ${dispatchError}`);
-                }  else {
+                    let registryErr = this.api.registry.findMetaError(dispatchError.asModule);
+                    throw new Error(`Tx failed with error: ${JSON.stringify(registryErr, null, 2)}`);
+                } else {
                     callback(result);
                 }
             }
