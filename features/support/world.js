@@ -20,10 +20,9 @@ class UserStoryWorld {
         this.api = null;
         this.contract = null;
         this.sudo = null;
-        this.firstOperand = '';
-        this.secondOperand = '';
         this.result = '';
         this.events = [];
+        this.readOutput = null;
         this.accounts = {};
         this.keyring = new Keyring({ type: 'sr25519' });
         this.sendTxOptions = null;
@@ -140,11 +139,18 @@ class UserStoryWorld {
     async queryEmissions(senderName, assetId) {
         const sender = this.accounts[senderName];
 
-        let output = await this.contract.query["assetCO2Emissions::queryEmissions"](
-            sender, assetId,
-            this.sendTxOptions
-          );
-          console.log(output);
+        const { result, output } = await this.contract.query["assetCO2Emissions::queryEmissions"](
+            sender.address,
+            this.sendTxOptions,
+            assetId,
+        );
+
+        if (result.isOk) {
+            this.readOutput = output.toJSON().ok;
+        }else{
+            let registryErr = this.api.registry.findMetaError(result.dispatchError.asModule);
+            throw new Error(`Tx failed with error: ${JSON.stringify(registryErr, null, 2)}`);
+        }
     }
 
     async initiateAccountWithBalance(accountName, balance) {
