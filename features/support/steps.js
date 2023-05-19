@@ -65,19 +65,23 @@ Given('A {string} creates an asset that is split into child assets where the ass
     "emissions": asset.emissions
   }
   let assetParent = [1, 5];
+  let assetParent2 = [2, 3];
 
   await this.prepareEnvironment();
   await this.blastAsset(caller, asset.metadata, null, emissionInfo);
   await this.pauseAsset(caller, 1);
+  emissionInfo.emissions = 5;
   await this.blastAsset(caller, asset.metadata, assetParent, emissionInfo);
+  await this.pauseAsset(caller, 2);
+  emissionInfo.emissions = 3;
+  await this.blastAsset(caller, asset.metadata, assetParent2, emissionInfo);
 
 });
 
 When('{string} performs a query on the asset with ID {int}', async function (caller, assetId) {
-  await this.queryEmissions(caller, 1);
+  await this.queryEmissions(caller, assetId);
 });
 
 Then('the following result should be returned', function (docString) {
-  // Write code here that turns the phrase above into concrete actions
-  return 'pending';
+  expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 });

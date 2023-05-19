@@ -14,8 +14,52 @@ Feature: User Story 2
     }
     """
 
-    When "Buyer" performs a query on the asset with ID 4
+    When "Buyer" performs a query on the asset with ID 3
 
     Then the following result should be returned
     """
+    [
+      [
+        3,
+        "0x6173736574206d65746164617461",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 3,
+            "date": 1682632800
+          }
+        ],
+        [2, 3]
+      ],
+      [
+        2,
+        "0x6173736574206d65746164617461",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 5,
+            "date": 1682632800
+          }
+        ],
+        [1, 5]
+      ],
+      [
+        1,
+        "0x6173736574206d65746164617461",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 10,
+            "date": 1682632800
+          }
+        ],
+        null
+      ]
+    ]
     """
