@@ -627,7 +627,7 @@ mod asset_co2_emissions {
                         None => Err(AssetCO2EmissionsError::AssetNotFound),
                         Some(parent_weight) => {
                             // Weight can not be greater than parent weight
-                            if weight > &parent_weight && weight == relation {
+                            if weight > &parent_weight || weight != relation || weight == &0u64 {
                                 return Err(AssetCO2EmissionsError::InvalidAssetRelation);
                             }
                             Ok(())
@@ -999,6 +999,7 @@ mod asset_co2_emissions {
             event: &test::EmittedEvent,
             expected_id: AssetId,
             expected_metadata: Metadata,
+            expected_weight: AssetWeight,
             expected_owner: AccountId,
             expected_parent: ParentDetails,
         ) {
@@ -1016,6 +1017,10 @@ mod asset_co2_emissions {
                 assert_eq!(
                     metadata, expected_metadata,
                     "encountered invalid Blasted.metadata"
+                );
+                assert_eq!(
+                    asset_weight, expected_weight,
+                    "encountered invalid Blasted.weight"
                 );
                 assert_eq!(owner, expected_owner, "encountered invalid Blasted.owner");
                 assert_eq!(
@@ -1323,6 +1328,7 @@ mod asset_co2_emissions {
                 &emitted_events[0],
                 expected_asset_id,
                 metadata,
+                asset_weight,
                 owner,
                 parent,
             );
@@ -1395,6 +1401,7 @@ mod asset_co2_emissions {
                 &emitted_events[0],
                 expected_asset_id,
                 metadata,
+                asset_weight,
                 owner,
                 parent,
             );
@@ -1827,7 +1834,7 @@ mod asset_co2_emissions {
 
             let mut contract = InfinityAsset::new();
             let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let asset_weight = 10;
+            let asset_weight = 0;
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
@@ -1864,6 +1871,55 @@ mod asset_co2_emissions {
             assert!(contract.pause(asset_id).is_ok());
 
             let parent: ParentDetails = Some((asset_id, 0));
+            assert_eq!(
+                contract.blast(owner, metadata, asset_weight, emissions, parent),
+                Err(AssetCO2EmissionsError::InvalidAssetRelation)
+            );
+        }
+
+        #[ink::test]
+        fn should_reject_weight_greater_than_parent_relation_in_blast() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let asset_weight = 10;
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_primary = true;
+            let emissions_balanced = true;
+
+            let e = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_primary,
+                emissions_balanced,
+                e,
+                timestamp,
+            );
+
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+            let asset_id = 1;
+            let owner = accounts.alice;
+
+            assert!(contract
+                .blast(
+                    owner,
+                    metadata.clone(),
+                    asset_weight.clone(),
+                    emissions.clone(),
+                    parent
+                )
+                .is_ok());
+
+            set_caller(owner);
+
+            assert!(contract.pause(asset_id).is_ok());
+
+            let parent: ParentDetails = Some((asset_id, 100));
             assert_eq!(
                 contract.blast(owner, metadata, asset_weight, emissions, parent),
                 Err(AssetCO2EmissionsError::InvalidAssetRelation)
@@ -1910,7 +1966,7 @@ mod asset_co2_emissions {
                 )
                 .is_ok());
 
-            let parent: ParentDetails = Some((asset_id, 101));
+            let parent: ParentDetails = Some((asset_id, 10));
 
             set_caller(accounts.eve);
             assert_eq!(
@@ -1959,7 +2015,7 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 90));
+            let parent: ParentDetails = Some((asset_id, 10));
             assert_eq!(
                 contract.blast(owner, metadata, asset_weight, emissions, parent),
                 Err(AssetCO2EmissionsError::NotPaused)
@@ -2006,7 +2062,7 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 100));
+            let parent: ParentDetails = Some((asset_id, 10));
             assert!(contract.pause(asset_id).is_ok());
             assert!(contract
                 .blast(owner, metadata.clone(), asset_weight, emissions, parent)
@@ -2021,6 +2077,7 @@ mod asset_co2_emissions {
                 &emitted_events[3],
                 expected_asset_id,
                 metadata,
+                asset_weight,
                 owner,
                 parent,
             );
@@ -2849,7 +2906,7 @@ mod asset_co2_emissions {
 
             let mut contract = InfinityAsset::new();
             let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let asset_weight = 10;
+            let asset_weight = 1000;
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
@@ -2880,7 +2937,8 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
+                let parent: ParentDetails = Some((asset_id, (1000 - (i % 1000))));
+                let asset_weight = 1000 - (i % 1000);
                 let e = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
@@ -2976,7 +3034,7 @@ mod asset_co2_emissions {
 
             let mut contract = InfinityAsset::new();
             let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let asset_weight = 10;
+            let asset_weight = 1000;
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
@@ -3004,7 +3062,8 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
+                let parent: ParentDetails = Some((asset_id, (1000 - (i % 1000))));
+                let asset_weight = 1000 - (i % 1000);
                 let e = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
