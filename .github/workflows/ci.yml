@@ -6,7 +6,7 @@ on:
     push:
         branches: [main]
     pull_request:
-        branches: [main, 5-e2e-testing-in-ci]
+        branches: [main]
 
     # Allows you to run this workflow manually from the Actions tab
     workflow_dispatch:
@@ -20,6 +20,7 @@ jobs:
             # Fix version to prevent cache misses with nightly changes
             RUST_NIGHTLY: nightly-2023-04-12
             NODE_JS: 16.19.1
+            CONTRACTS_NODE_VERSION: v0.24.0
 
         # Steps represent a sequence of tasks that will be executed as part of the job
         steps:
@@ -48,8 +49,8 @@ jobs:
 
             - name: Install `substrate-contracts-node`
               run: |
-                  curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-linux' && \
-                  unzip substrate-contracts-node.zip && \
+                  curl -L -o substrate-contracts-node.tar.gz "https://github.com/paritytech/substrate-contracts-node/releases/download/${{ env.CONTRACTS_NODE_VERSION }}/substrate-contracts-node-linux.tar.gz" && \
+                  tar -xf substrate-contracts-node.tar.gz && \
                   echo "$(pwd)/artifacts/substrate-contracts-node-linux" >> $GITHUB_PATH && \
                   chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node
 
@@ -72,6 +73,14 @@ jobs:
             - name: Check formatting
               run: |
                   cargo fmt --check
+
+            - name: Check JS formatting with Prettier
+              run: |
+                  yarn prettier --check .
+
+            - name: Check JS formatting with ESLint
+              run: |
+                  yarn run eslint .
 
             - name: Cache Build artefacts
               uses: actions/cache@v3
@@ -96,3 +105,10 @@ jobs:
             - name: Check clippy linting
               run: |
                   cargo clippy --all-features
+
+            - name: Run E2E JS tests
+              run: |
+                  cargo contract build --release
+                  substrate-contracts-node --dev &
+                  sleep 10
+                  yarn test --exit
