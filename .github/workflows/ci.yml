@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       NIGHTLY: nightly-2023-04-12 # Fix version to prevent cache misses with nightly changes
+      CARGO_CONTRACTS_VERSION: v2.1.0
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -38,11 +39,11 @@ jobs:
           override: true
           components: rustfmt, clippy, rust-src
 
-      - name: Install `cargo-contract` `main`
+      - name: Install `cargo-contract`
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --git https://github.com/paritytech/cargo-contract.git
+          args: --git https://github.com/paritytech/cargo-contract.git --tag ${{ env.CARGO_CONTRACTS_VERSION }}
 
       - name: Install `substrate-contracts-node`
         run: |
