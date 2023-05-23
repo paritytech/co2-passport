@@ -4,7 +4,6 @@ const { setWorldConstructor } = require("cucumber");
 const { CodePromise, ContractPromise } = require("@polkadot/api-contract");
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { BN } = require("@polkadot/util");
-
 const contractAbi = require("../../target/ink/asset_co2_emissions.json");
 const contract = JSON.parse(
 	fs.readFileSync("./target/ink/asset_co2_emissions.contract")
@@ -21,6 +20,7 @@ class UserStoryWorld {
 	constructor() {
 		this.api = null;
 		this.contract = null;
+		this.codeHash = null;
 		this.sudo = null;
 		this.result = "";
 		this.events = [];
@@ -45,13 +45,13 @@ class UserStoryWorld {
 			storageDepositLimit,
 		};
 
-		await this.deploySmartContract();
+		await this.deploySmartContract(contract);
 		await this.initiateAccountWithBalance("Seller", 100_000_000_000_000);
 		await this.initiateAccountWithBalance("Buyer", 100_000_000_000_000);
 		await this.initiateAccountWithBalance("Eve", 100_000_000_000_000);
 	}
 
-	async deploySmartContract() {
+	async deploySmartContract(contract) {
 		const code = new CodePromise(
 			this.api,
 			contractAbi,
@@ -62,8 +62,48 @@ class UserStoryWorld {
 
 		// Wait for the smart contract to deploy, and contract address set
 		await new Promise((resolve) => {
-			this.signAndSend(this.sudo, tx, (result) => {
+			this.signAndSend(this.sudo, tx, async (result) => {
 				this.setContractAddress(result);
+				await this.setCodeHash(this.contract.address);
+				resolve();
+			});
+		});
+	}
+
+	async setCodeHash(contractAddress) {
+		const { codeHash } = (await this.api.query.contracts.contractInfoOf(contractAddress)).toHuman();
+		this.codeHash = codeHash;
+	}
+
+	async upgradeContract(contract) {
+		let oldContract = this.contract;
+		await this.deploySmartContract(contract);
+
+		let upgradeExtrinsic = oldContract.tx["setCode"](
+			this.sendTxOptions,
+			this.codeHash
+		);
+
+		await new Promise((resolve) => {
+			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
+				resolve();
+			});
+		});
+	}
+
+
+	async setContractOwner(newOwner) {
+		const sender = this.accounts[newOwner];
+
+		const assetOwner = sender.address;
+
+		let upgradeExtrinsic = this.contract.tx["setContractOwner"](
+			this.sendTxOptions,
+			assetOwner
+		);
+
+		await new Promise((resolve) => {
+			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
 				resolve();
 			});
 		});
