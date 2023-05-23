@@ -1,5 +1,6 @@
 const { Given, When, Then } = require("cucumber");
 const { expect } = require("chai");
+const { hexToString} = require("@polkadot/util");
 
 /* User Story 1 (us1) */
 
@@ -80,38 +81,35 @@ Then("the following transfer events will be emitted:", function (jsonString) {
 /* User Story 2 (us2) */
 
 Given(
-	"A {string} creates an asset that is split into child assets where the asset is defined as:",
+	"A {string} creates an asset that is split into child assets where the assets are defined as:",
 	async function (caller, jsonString) {
-		let asset = JSON.parse(jsonString);
-
-		let emissionInfo = {
-			category: asset.emission_category,
-			primary: true,
-			balanced: true,
-			date: asset.date,
-			emissions: asset.emissions,
-		};
-		let assetParent = [1, 5];
-		let assetParent2 = [2, 3];
+		let assets = JSON.parse(jsonString);
 
 		await this.prepareEnvironment();
-		await this.blastAsset(caller, asset.metadata, null, emissionInfo);
-		await this.pauseAsset(caller, 1);
-		emissionInfo.emissions = 5;
-		await this.blastAsset(
-			caller,
-			asset.metadata,
-			assetParent,
-			emissionInfo
-		);
-		await this.pauseAsset(caller, 2);
-		emissionInfo.emissions = 3;
-		await this.blastAsset(
-			caller,
-			asset.metadata,
-			assetParent2,
-			emissionInfo
-		);
+
+		for (let [i, asset] of assets.entries()) {
+			let emissionInfo = {
+				category: asset.emission_category,
+				primary: true,
+				balanced: true,
+				date: asset.date,
+				emissions: asset.emissions,
+			};
+
+			let assetParent = null;
+
+			if (i > 0) {
+				assetParent = [i, asset.metadata.weight];
+				await this.pauseAsset(caller, i);
+			}
+
+			await this.blastAsset(
+				caller,
+				JSON.stringify(asset.metadata),
+				assetParent,
+				emissionInfo
+			);
+		}
 	}
 );
 
@@ -122,6 +120,36 @@ When(
 	}
 );
 
-Then("the following result should be returned", function (docString) {
+Then("the following result should be returned with total emissions of {float}", function (expectedEmissions, docString) {
 	expect(this.readOutput).to.deep.equal(JSON.parse(docString));
+
+	// The recursive formula is defined as:
+	// let e_n = the emissions of the asset at the nth level
+	// let w_n = the weight of the asset at nth level
+	// let Te_n = the total emissions of the asset at the nth level
+	// Te_0 = e_0
+	// Te_1 = (w_1 / w_0) * Te_0 + e_1
+	// Te_2 = (w_2 / w_1) * Te_1 + e_2
+	// ...
+	// Te_n = (w_n / w_n-1) * Te_n-1 + e_n
+
+	let totalEmissions = 0;
+	let prevWeight = 0;
+	for (let asset of this.readOutput.reverse()) {
+		let metadata = JSON.parse(hexToString(asset[1]));
+
+		// base case
+		if(asset[3] === null) {
+			totalEmissions = asset[2][0].emissions;
+			prevWeight = metadata.weight;
+			continue;
+		}
+
+		// ratio / relation of child from parent
+		let r = metadata.weight / prevWeight;
+		totalEmissions = (r * totalEmissions) + asset[2][0].emissions;
+		prevWeight = metadata.weight;
+	}
+
+	expect(totalEmissions).to.equal(expectedEmissions);
 });

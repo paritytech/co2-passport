@@ -4,38 +4,44 @@ Feature: User Story 2
     - I want to trace all of the upstream emissions of an asset.
 
   Scenario: Buyer reviews and follows the chain of emissions for an asset
-    Given A "Seller" creates an asset that is split into child assets where the asset is defined as:
+    Given A "Seller" creates an asset that is split into child assets where the assets are defined as:
     """
-    {
-      "metadata": "asset metadata",
-      "emission_category": "Upstream",
-      "emissions": 10,
-      "date": 1682632800
-    }
+    [
+      {
+        "metadata": {
+          "weight": 100
+        },
+        "emission_category": "Upstream",
+        "emissions": 15,
+        "date": 1682632800
+      },
+      {
+        "metadata": {
+          "weight": 50
+        },
+        "emission_category": "Upstream",
+        "emissions": 10,
+        "date": 1682632800
+      },
+      {
+        "metadata": {
+          "weight": 25
+        },
+        "emission_category": "Upstream",
+        "emissions": 5,
+        "date": 1682632800
+      }
+    ]
     """
 
     When "Buyer" performs a query on the asset with ID 3
 
-    Then the following result should be returned
+    Then the following result should be returned with total emissions of 13.75
     """
     [
       [
         3,
-        "0x6173736574206d65746164617461",
-        [
-          {
-            "category": "Upstream",
-            "primary": true,
-            "balanced": true,
-            "emissions": 3,
-            "date": 1682632800
-          }
-        ],
-        [2, 3]
-      ],
-      [
-        2,
-        "0x6173736574206d65746164617461",
+        "0x7b22776569676874223a32357d",
         [
           {
             "category": "Upstream",
@@ -45,17 +51,31 @@ Feature: User Story 2
             "date": 1682632800
           }
         ],
-        [1, 5]
+        [2, 25]
       ],
       [
-        1,
-        "0x6173736574206d65746164617461",
+        2,
+        "0x7b22776569676874223a35307d",
         [
           {
             "category": "Upstream",
             "primary": true,
             "balanced": true,
             "emissions": 10,
+            "date": 1682632800
+          }
+        ],
+        [1, 50]
+      ],
+      [
+        1,
+        "0x7b22776569676874223a3130307d",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 15,
             "date": 1682632800
           }
         ],
