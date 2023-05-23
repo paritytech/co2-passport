@@ -1,6 +1,7 @@
 const { Given, When, Then } = require("cucumber");
 const { expect } = require("chai");
 const { hexToString} = require("@polkadot/util");
+const fs = require("fs");
 
 /* User Story 1 (us1) */
 
@@ -152,4 +153,26 @@ Then("the following result should be returned with total emissions of {float}", 
 	}
 
 	expect(totalEmissions).to.equal(expectedEmissions);
+});
+
+
+/* User Story 3 (us3) */
+Given("The original contract is deployed", async function () {
+	await this.prepareEnvironment();
+});
+
+When(
+	"The contract owner updgrades the contract",
+	async function () {
+		const contract = JSON.parse(
+			fs.readFileSync("./integration-tests/updated-contract/target/ink/updated_contract.contract")
+		);
+		await this.deploySmartContract(contract);
+		await this.upgradeContract(contract);
+		await this.setContractOwner("Seller");
+	}
+);
+
+Then("it will be cool", function () {
+	return;
 });
