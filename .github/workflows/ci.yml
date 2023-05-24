@@ -47,7 +47,7 @@ jobs:
 
       - name: Install `substrate-contracts-node`
         run: |
-          curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/${{ CONTRACTS_NODE_VERSION }}/download?job=build-linux' && \
+          curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/${{ env.CONTRACTS_NODE_VERSION }}/download?job=build-linux' && \
           unzip substrate-contracts-node.zip && \
           echo "$(pwd)/artifacts/substrate-contracts-node-linux" >> $GITHUB_PATH && \
           chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node
