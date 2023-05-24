@@ -71,7 +71,9 @@ class UserStoryWorld {
 	}
 
 	async setCodeHash(contractAddress) {
-		const { codeHash } = (await this.api.query.contracts.contractInfoOf(contractAddress)).toHuman();
+		const { codeHash } = (
+			await this.api.query.contracts.contractInfoOf(contractAddress)
+		).toHuman();
 		this.codeHash = codeHash;
 	}
 
@@ -85,12 +87,12 @@ class UserStoryWorld {
 		);
 
 		await new Promise((resolve) => {
+			// eslint-disable-next-line no-unused-vars
 			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
 				resolve();
 			});
 		});
 	}
-
 
 	async setContractOwner(newOwner) {
 		const sender = this.accounts[newOwner];
@@ -103,6 +105,7 @@ class UserStoryWorld {
 		);
 
 		await new Promise((resolve) => {
+			// eslint-disable-next-line no-unused-vars
 			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
 				resolve();
 			});
