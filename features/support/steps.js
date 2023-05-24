@@ -1,6 +1,6 @@
 const { Given, When, Then } = require("cucumber");
 const { expect } = require("chai");
-const { hexToString} = require("@polkadot/util");
+const { hexToString } = require("@polkadot/util");
 const fs = require("fs");
 
 /* User Story 1 (us1) */
@@ -121,57 +121,58 @@ When(
 	}
 );
 
-Then("the following result should be returned with total emissions of {float}", function (expectedEmissions, docString) {
-	expect(this.readOutput).to.deep.equal(JSON.parse(docString));
+Then(
+	"the following result should be returned with total emissions of {float}",
+	function (expectedEmissions, docString) {
+		expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 
-	// The recursive formula is defined as:
-	// let e_n = the emissions of the asset at the nth level
-	// let w_n = the weight of the asset at nth level
-	// let Te_n = the total emissions of the asset at the nth level
-	// Te_0 = e_0
-	// Te_1 = (w_1 / w_0) * Te_0 + e_1
-	// Te_2 = (w_2 / w_1) * Te_1 + e_2
-	// ...
-	// Te_n = (w_n / w_n-1) * Te_n-1 + e_n
+		// The recursive formula is defined as:
+		// let e_n = the emissions of the asset at the nth level
+		// let w_n = the weight of the asset at nth level
+		// let Te_n = the total emissions of the asset at the nth level
+		// Te_0 = e_0
+		// Te_1 = (w_1 / w_0) * Te_0 + e_1
+		// Te_2 = (w_2 / w_1) * Te_1 + e_2
+		// ...
+		// Te_n = (w_n / w_n-1) * Te_n-1 + e_n
 
-	let totalEmissions = 0;
-	let prevWeight = 0;
-	for (let asset of this.readOutput.reverse()) {
-		let metadata = JSON.parse(hexToString(asset[1]));
+		let totalEmissions = 0;
+		let prevWeight = 0;
+		for (let asset of this.readOutput.reverse()) {
+			let metadata = JSON.parse(hexToString(asset[1]));
 
-		// base case
-		if(asset[3] === null) {
-			totalEmissions = asset[2][0].emissions;
+			// base case
+			if (asset[3] === null) {
+				totalEmissions = asset[2][0].emissions;
+				prevWeight = metadata.weight;
+				continue;
+			}
+
+			// ratio / relation of child from parent
+			let r = metadata.weight / prevWeight;
+			totalEmissions = r * totalEmissions + asset[2][0].emissions;
 			prevWeight = metadata.weight;
-			continue;
 		}
 
-		// ratio / relation of child from parent
-		let r = metadata.weight / prevWeight;
-		totalEmissions = (r * totalEmissions) + asset[2][0].emissions;
-		prevWeight = metadata.weight;
+		expect(totalEmissions).to.equal(expectedEmissions);
 	}
-
-	expect(totalEmissions).to.equal(expectedEmissions);
-});
-
+);
 
 /* User Story 3 (us3) */
 Given("The original contract is deployed", async function () {
 	await this.prepareEnvironment();
 });
 
-When(
-	"The contract owner updgrades the contract",
-	async function () {
-		const contract = JSON.parse(
-			fs.readFileSync("./integration-tests/updated-contract/target/ink/updated_contract.contract")
-		);
-		await this.deploySmartContract(contract);
-		await this.upgradeContract(contract);
-		await this.setContractOwner("Seller");
-	}
-);
+When("The contract owner updgrades the contract", async function () {
+	const contract = JSON.parse(
+		fs.readFileSync(
+			"./integration-tests/updated-contract/target/ink/updated_contract.contract"
+		)
+	);
+	await this.deploySmartContract(contract);
+	await this.upgradeContract(contract);
+	await this.setContractOwner("Seller");
+});
 
 Then("it will be cool", function () {
 	return;
