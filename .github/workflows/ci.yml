@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       NIGHTLY: nightly-2023-04-12 # Fix version to prevent cache misses with nightly changes
+      CONTRACTS_NODE_VERSION: v0.24.0
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -46,7 +47,7 @@ jobs:
 
       - name: Install `substrate-contracts-node`
         run: |
-          curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/main/download?job=build-linux' && \
+          curl -L -o substrate-contracts-node.zip 'https://gitlab.parity.io/parity/mirrors/substrate-contracts-node/-/jobs/artifacts/${{ CONTRACTS_NODE_VERSION }}/download?job=build-linux' && \
           unzip substrate-contracts-node.zip && \
           echo "$(pwd)/artifacts/substrate-contracts-node-linux" >> $GITHUB_PATH && \
           chmod +x artifacts/substrate-contracts-node-linux/substrate-contracts-node
