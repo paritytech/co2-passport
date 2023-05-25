@@ -12,13 +12,15 @@ Given("I have the environment prepared.", async function () {
 When(
 	"{string} creates an asset with metadata: {string} and {string} emissions with the amount: {int} Grams per kilo CO2 emitted from date: {int}.",
 	async function (caller, metadata, emission_category, emissions, date) {
-		let emissionInfo = {
-			category: emission_category,
-			primary: true,
-			balanced: true,
-			date: date,
-			emissions: emissions,
-		};
+		let emissionInfo = [
+			{
+				category: emission_category,
+				primary: true,
+				balanced: true,
+				date: date,
+				emissions: emissions,
+			},
+		];
 		let assetParent = null;
 		await this.blastAsset(caller, metadata, assetParent, emissionInfo);
 	}
@@ -40,13 +42,15 @@ Given(
 	async function (caller, jsonString) {
 		let asset = JSON.parse(jsonString);
 
-		let emissionInfo = {
-			category: asset.emission_category,
-			primary: true,
-			balanced: true,
-			date: asset.date,
-			emissions: asset.emissions,
-		};
+		let emissionInfo = [
+			{
+				category: asset.emission_category,
+				primary: true,
+				balanced: true,
+				date: asset.date,
+				emissions: asset.emissions,
+			},
+		];
 		let assetParent = null;
 
 		await this.prepareEnvironment();
@@ -102,30 +106,7 @@ Given(
 		let assets = JSON.parse(jsonString);
 
 		await this.prepareEnvironment();
-
-		for (let [i, asset] of assets.entries()) {
-			let emissionInfo = {
-				category: asset.emission_category,
-				primary: true,
-				balanced: true,
-				date: asset.date,
-				emissions: asset.emissions,
-			};
-
-			let assetParent = null;
-
-			if (i > 0) {
-				assetParent = [i, asset.metadata.weight];
-				await this.pauseAsset(caller, i);
-			}
-
-			await this.blastAsset(
-				caller,
-				JSON.stringify(asset.metadata),
-				assetParent,
-				emissionInfo
-			);
-		}
+		await this.createAssetTree(caller, assets);
 	}
 );
 
@@ -135,10 +116,9 @@ When(
 		await this.queryEmissions(caller, assetId);
 	}
 );
-
 Then(
-	"The following result should be returned with offchain calculation of total emissions of {float}",
-	function (expectedEmissions, docString) {
+	"The following result should be returned and the offchain calculation for {string} emissions not earlier than the date {int} should be {float}",
+	function (filterCategory, filterDate, expectedEmissions, docString) {
 		expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 
 		// The recursive formula is defined as:
@@ -155,17 +135,28 @@ Then(
 		let prevWeight = 0;
 		for (let asset of this.readOutput.reverse()) {
 			let metadata = JSON.parse(hexToString(asset[1]));
+			let emissions = asset[2];
+			let totalAssetEmissions = 0;
+
+			for (emissions of emissions) {
+				if (emissions.date < filterDate) {
+					continue;
+				}
+
+				if (emissions.category === filterCategory) {
+					totalAssetEmissions += emissions.emissions;
+				}
+			}
 
 			// base case
 			if (asset[3] === null) {
-				totalEmissions = asset[2][0].emissions;
+				totalEmissions = totalAssetEmissions;
 				prevWeight = metadata.weight;
 				continue;
 			}
-
 			// ratio / relation of child from parent
 			let r = metadata.weight / prevWeight;
-			totalEmissions = r * totalEmissions + asset[2][0].emissions;
+			totalEmissions = r * totalEmissions + totalAssetEmissions;
 			prevWeight = metadata.weight;
 		}
 

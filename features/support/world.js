@@ -124,19 +124,10 @@ class UserStoryWorld {
 		}
 	}
 
-	async blastAsset(account_name, metadata, assetParent, emissionInfo) {
+	async blastAsset(account_name, metadata, assetParent, assetEmissions) {
 		const sender = this.accounts[account_name];
 
 		const assetOwner = sender.address;
-		const assetEmissions = [
-			{
-				category: emissionInfo.category,
-				primary: emissionInfo.primary,
-				balanced: emissionInfo.balanced,
-				date: emissionInfo.date,
-				emissions: emissionInfo.emissions,
-			},
-		];
 
 		// do dry run to get the required gas and storage deposit
 		const { gasRequired, storageDeposit } = await this.dryRun(
@@ -246,6 +237,36 @@ class UserStoryWorld {
 				resolve();
 			});
 		});
+	}
+
+	// Helper to split an asset into the given child assets
+	async createAssetTree(caller, assets) {
+		for (let [i, asset] of assets.entries()) {
+			let emissions = [];
+			for (const emission of asset.emissions) {
+				emissions.push({
+					category: emission.emission_category,
+					primary: true,
+					balanced: true,
+					date: emission.date,
+					emissions: emission.emissions,
+				});
+			}
+
+			let assetParent = null;
+
+			if (i > 0) {
+				assetParent = [i, asset.metadata.weight];
+				await this.pauseAsset(caller, i);
+			}
+
+			await this.blastAsset(
+				caller,
+				JSON.stringify(asset.metadata),
+				assetParent,
+				emissions
+			);
+		}
 	}
 
 	async getOwnerOf(senderName, assetId) {
