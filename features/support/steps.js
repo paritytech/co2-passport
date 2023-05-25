@@ -24,10 +24,16 @@ When(
 	}
 );
 
-Then("the following events will be emitted:", function (jsonString) {
-	let events = JSON.parse(jsonString);
-	expect(this.events).to.deep.equal(events);
-});
+Then(
+	"The asset {int} and emitted events will be the following:",
+	async function (assetId, jsonString) {
+		let { asset, events } = JSON.parse(jsonString);
+		let assetDetails = await this.getAsset("Eve", assetId);
+
+		expect(assetDetails).to.deep.equal(asset);
+		expect(this.events).to.deep.equal(events);
+	}
+);
 
 Given(
 	"the {string} has blasted the asset with the following parameters:",
@@ -131,7 +137,7 @@ When(
 );
 
 Then(
-	"The following result should be returned with total emissions of {float}",
+	"The following result should be returned with offchain calculation of total emissions of {float}",
 	function (expectedEmissions, docString) {
 		expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 
