@@ -248,6 +248,38 @@ class UserStoryWorld {
 		});
 	}
 
+	async getOwnerOf(senderName, assetId) {
+		const sender = this.accounts[senderName];
+
+		const { result, output } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::ownerOf",
+			this.defaultTxOptions,
+			assetId
+		);
+
+		if (result.isOk) {
+			this.readOutput = output.toJSON().ok;
+			return this.readOutput;
+		}
+	}
+
+	async getAsset(senderName, assetId) {
+		const sender = this.accounts[senderName];
+
+		const { result, output } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::getAsset",
+			this.defaultTxOptions,
+			assetId
+		);
+
+		if (result.isOk) {
+			this.readOutput = output.toJSON().ok;
+			return this.readOutput;
+		}
+	}
+
 	async queryEmissions(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
@@ -260,6 +292,7 @@ class UserStoryWorld {
 
 		if (result.isOk) {
 			this.readOutput = output.toJSON().ok;
+			return this.readOutput;
 		}
 	}
 

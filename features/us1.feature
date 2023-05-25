@@ -32,10 +32,28 @@ Feature: User Story 1
 
     When "Seller" transfers asset with ID 1 to "Buyer" with new "Transport" emission with the amount of 10 grams per kilo on the date 1682632800
 
-    Then the following transfer events will be emitted:
+    Then "Buyer" will be the new owner of asset 1, the emissions and transfer events will be the following:
     """
-    [
-      {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
-      {"event":{"name":"Emission","args":["1","Transport",true,true,"1,682,632,800","10"]}}
-    ]
+    {
+      "emissions": [
+        {
+          "category": "Upstream",
+          "primary": true,
+          "balanced": true,
+          "emissions": 10,
+          "date": 1682632800
+        },
+        {
+          "category": "Transport",
+          "primary": true,
+          "balanced": true,
+          "emissions": 10,
+          "date": 1682632800
+        }
+      ],
+      "events": [
+        {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
+        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,682,632,800","10"]}}
+      ]
+    }
     """

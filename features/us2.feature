@@ -36,7 +36,7 @@ Feature: User Story 2
 
     When "Buyer" performs a query on the asset with ID 3
 
-    Then the following result should be returned with total emissions of 13.75
+    Then The following result should be returned with total emissions of 13.75
     """
     [
       [

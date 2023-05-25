@@ -74,10 +74,19 @@ When(
 	}
 );
 
-Then("the following transfer events will be emitted:", function (jsonString) {
-	let events = JSON.parse(jsonString);
-	expect(this.events).to.deep.equal(events);
-});
+Then(
+	"{string} will be the new owner of asset {int}, the emissions and transfer events will be the following:",
+	async function (sender, assetId, jsonString) {
+		let { emissions, events } = JSON.parse(jsonString);
+
+		expect(this.events).to.deep.equal(events);
+
+		let ownerOf = await this.getOwnerOf(sender, assetId);
+		let assetDetails = await this.getAsset(sender, assetId);
+		expect(ownerOf).to.equal(this.accounts[sender].address);
+		expect(assetDetails[2]).to.deep.equal(emissions);
+	}
+);
 
 /* User Story 2 (us2) */
 
@@ -122,7 +131,7 @@ When(
 );
 
 Then(
-	"the following result should be returned with total emissions of {float}",
+	"The following result should be returned with total emissions of {float}",
 	function (expectedEmissions, docString) {
 		expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 
