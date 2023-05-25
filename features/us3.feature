@@ -7,4 +7,4 @@ Feature: User Story 3
 
     When The contract owner updgrades the contract
 
-    Then it will be cool
+    Then The contract will be upgraded

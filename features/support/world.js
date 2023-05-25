@@ -4,13 +4,20 @@ const { setWorldConstructor } = require("cucumber");
 const { CodePromise, ContractPromise } = require("@polkadot/api-contract");
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { BN } = require("@polkadot/util");
+
+// require uses the path relative to the file it is called from
 const contractAbi = require("../../target/ink/asset_co2_emissions.json");
+// fs.readFileSync uses the path relative to the cwd of the calling process (should be root of the project)
 const contract = JSON.parse(
 	fs.readFileSync("./target/ink/asset_co2_emissions.contract")
 );
 
+// Max gas limit
 const REF_TIME = new BN(300_000_000_000);
 const PROOF_SIZE = new BN(1000000);
+
+// Unlimited storage deposit
+const STORAGE_DEPOSIT_LIMIT = null;
 
 // dev mnemonic
 const MNENOMIC =
@@ -27,7 +34,7 @@ class UserStoryWorld {
 		this.readOutput = null;
 		this.accounts = {};
 		this.keyring = new Keyring({ type: "sr25519" });
-		this.sendTxOptions = null;
+		this.defaultTxOptions = null;
 	}
 
 	async prepareEnvironment() {
@@ -36,13 +43,12 @@ class UserStoryWorld {
 		const wsProvider = new WsProvider("ws://127.0.0.1:9944");
 		this.api = await ApiPromise.create({ provider: wsProvider });
 
-		const storageDepositLimit = 1_000_000_000_000;
-		this.sendTxOptions = {
+		this.defaultTxOptions = {
 			gasLimit: this.api.registry.createType("WeightV2", {
 				refTime: REF_TIME,
 				proofSize: PROOF_SIZE,
 			}),
-			storageDepositLimit,
+			STORAGE_DEPOSIT_LIMIT,
 		};
 
 		await this.deploySmartContract(contract);
@@ -58,7 +64,7 @@ class UserStoryWorld {
 			contract.source.wasm
 		);
 
-		const tx = code.tx.new(this.sendTxOptions);
+		const tx = code.tx.new(this.defaultTxOptions);
 
 		// Wait for the smart contract to deploy, and contract address set
 		await new Promise((resolve) => {
@@ -81,17 +87,24 @@ class UserStoryWorld {
 		let oldContract = this.contract;
 		await this.deploySmartContract(contract);
 
-		let upgradeExtrinsic = oldContract.tx["setCode"](
-			this.sendTxOptions,
+		const { gasRequired, storageDeposit } = await this.dryRun(
+			this.sudo,
+			"setCode",
+			this.defaultTxOptions,
 			this.codeHash
 		);
 
-		await new Promise((resolve) => {
-			// eslint-disable-next-line no-unused-vars
-			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
-				resolve();
-			});
-		});
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
+		let upgradeExtrinsic = oldContract.tx["setCode"](
+			txOptions,
+			this.codeHash
+		);
+
+		await this.signAndSend(this.sudo, upgradeExtrinsic, () => {});
 	}
 
 	async setContractOwner(newOwner) {
@@ -99,17 +112,16 @@ class UserStoryWorld {
 
 		const assetOwner = sender.address;
 
-		let upgradeExtrinsic = this.contract.tx["setContractOwner"](
-			this.sendTxOptions,
+		const { result, output } = await this.dryRun(
+			sender,
+			"setContractOwner",
+			this.defaultTxOptions,
 			assetOwner
 		);
 
-		await new Promise((resolve) => {
-			// eslint-disable-next-line no-unused-vars
-			this.signAndSend(this.sudo, upgradeExtrinsic, (result) => {
-				resolve();
-			});
-		});
+		if (result.isOk) {
+			this.readOutput = output.toJSON().ok;
+		}
 	}
 
 	async blastAsset(account_name, metadata, assetParent, emissionInfo) {
@@ -126,8 +138,24 @@ class UserStoryWorld {
 			},
 		];
 
+		// do dry run to get the required gas and storage deposit
+		const { gasRequired, storageDeposit } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::blast",
+			this.defaultTxOptions,
+			assetOwner,
+			metadata,
+			assetEmissions,
+			assetParent
+		);
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
 		let blastExtrinsic = this.contract.tx["assetCO2Emissions::blast"](
-			this.sendTxOptions,
+			txOptions,
 			assetOwner,
 			metadata,
 			assetEmissions,
@@ -163,8 +191,22 @@ class UserStoryWorld {
 			},
 		];
 
+		const { gasRequired, storageDeposit } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::transfer",
+			this.defaultTxOptions,
+			receiver.address,
+			assetId,
+			assetEmissions
+		);
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
 		let transferExtrinsic = this.contract.tx["assetCO2Emissions::transfer"](
-			this.sendTxOptions,
+			txOptions,
 			receiver.address,
 			assetId,
 			assetEmissions
@@ -181,8 +223,20 @@ class UserStoryWorld {
 	async pauseAsset(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
+		const { gasRequired, storageDeposit } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::pause",
+			this.defaultTxOptions,
+			assetId
+		);
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
 		let pauseExtrinsic = this.contract.tx["assetCO2Emissions::pause"](
-			this.sendTxOptions,
+			txOptions,
 			assetId
 		);
 
@@ -197,19 +251,15 @@ class UserStoryWorld {
 	async queryEmissions(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
-		const { result, output } = await this.contract.query[
-			"assetCO2Emissions::queryEmissions"
-		](sender.address, this.sendTxOptions, assetId);
+		const { result, output } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::queryEmissions",
+			this.defaultTxOptions,
+			assetId
+		);
 
 		if (result.isOk) {
 			this.readOutput = output.toJSON().ok;
-		} else {
-			let registryErr = this.api.registry.findMetaError(
-				result.dispatchError.asModule
-			);
-			throw new Error(
-				`Tx failed with error: ${JSON.stringify(registryErr, null, 2)}`
-			);
 		}
 	}
 
@@ -221,12 +271,7 @@ class UserStoryWorld {
 			this.api.tx.balances.setBalance(account.address, balance, 0)
 		);
 
-		await this.signAndSend(this.sudo, extrinsic, this.doNothing);
-	}
-
-	// eslint-disable-next-line  no-unused-vars
-	doNothing(result) {
-		//    console.log(result)
+		await this.signAndSend(this.sudo, extrinsic, () => {});
 	}
 
 	getEvents(result) {
@@ -252,6 +297,21 @@ class UserStoryWorld {
 			contractAbi,
 			contractAddress
 		);
+	}
+
+	async dryRun(sender, message, ...params) {
+		const o = await this.contract.query[message](sender.address, ...params);
+
+		if (!o.result.isOk) {
+			let registryErr = this.api.registry.findMetaError(
+				o.result.dispatchError.asModule
+			);
+			throw new Error(
+				`Tx failed with error: ${JSON.stringify(registryErr, null, 2)}`
+			);
+		}
+
+		return o;
 	}
 
 	async signAndSend(wallet, extrinsic, callback) {

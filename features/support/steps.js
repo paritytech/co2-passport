@@ -171,9 +171,10 @@ When("The contract owner updgrades the contract", async function () {
 	);
 	await this.deploySmartContract(contract);
 	await this.upgradeContract(contract);
-	await this.setContractOwner("Seller");
 });
 
-Then("it will be cool", function () {
-	return;
+Then("The contract will be upgraded", async function () {
+	// This should return `AlreadyPaused` error to showcase the contract upgraded
+	await this.setContractOwner("Seller");
+	expect(this.readOutput.err).to.equal("AlreadyPaused");
 });
