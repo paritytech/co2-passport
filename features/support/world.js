@@ -318,7 +318,7 @@ class UserStoryWorld {
 	async getOwnerOf(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
-		const { result, output } = await this.dryRun(
+		const { result, output } = await this.getContractState(
 			sender,
 			"assetCO2Emissions::ownerOf",
 			this.defaultTxOptions,
@@ -334,7 +334,7 @@ class UserStoryWorld {
 	async getAsset(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
-		const { result, output } = await this.dryRun(
+		const { result, output } = await this.getContractState(
 			sender,
 			"assetCO2Emissions::getAsset",
 			this.defaultTxOptions,
@@ -350,7 +350,7 @@ class UserStoryWorld {
 	async queryEmissions(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
-		const { result, output } = await this.dryRun(
+		const { result, output } = await this.getContractState(
 			sender,
 			"assetCO2Emissions::queryEmissions",
 			this.defaultTxOptions,
@@ -397,6 +397,10 @@ class UserStoryWorld {
 			contractAbi,
 			contractAddress
 		);
+	}
+
+	async getContractState(sender, message, ...params) {
+		return await this.dryRun(sender, message, ...params);
 	}
 
 	async dryRun(sender, message, ...params) {
