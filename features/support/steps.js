@@ -39,15 +39,6 @@ Given(
 	async function (caller, jsonString) {
 		let asset = JSON.parse(jsonString);
 
-		let emissionInfo = [
-			{
-				category: asset.emission_category,
-				primary: true,
-				balanced: true,
-				date: asset.date,
-				emissions: asset.emissions,
-			},
-		];
 		let assetParent = null;
 
 		await this.prepareEnvironment();
@@ -55,29 +46,16 @@ Given(
 			caller,
 			asset.metadata,
 			assetParent,
-			emissionInfo
+			asset.emissions
 		);
 	}
 );
 
 When(
-	"{string} transfers asset with ID {int} to {string} with new {string} emission with the amount of {int} grams per kilo on the date {int}",
-	async function (
-		seller,
-		assetId,
-		buyer,
-		emission_category,
-		emissions,
-		date
-	) {
-		await this.transferAsset(
-			seller,
-			assetId,
-			buyer,
-			emission_category,
-			emissions,
-			date
-		);
+	"{string} transfers asset with ID {int} to {string} with emissions of:",
+	async function (seller, assetId, buyer, jsonString) {
+		let emissions = JSON.parse(jsonString);
+		await this.transferAsset(seller, assetId, buyer, emissions);
 	}
 );
 
@@ -94,6 +72,41 @@ Then(
 		expect(assetDetails[2]).to.deep.equal(emissions);
 	}
 );
+
+Given(
+	"The {string} has blasted the following asset:",
+	async function (caller, jsonString) {
+		let asset = JSON.parse(jsonString);
+
+		let assetParent = null;
+
+		await this.prepareEnvironment();
+		await this.blastAsset(
+			caller,
+			asset.metadata,
+			assetParent,
+			asset.emissions
+		);
+	}
+);
+
+When(
+	"{string} adds the following emission to the asset with ID {int}:",
+	async function (seller, assetId, jsonString) {
+		let emission = JSON.parse(jsonString);
+
+		await this.addEmission(seller, assetId, emission);
+	}
+);
+
+Then("The asset {int} will be:", async function (assetId, jsonString) {
+	let { emissions, events } = JSON.parse(jsonString);
+
+	let assetDetails = await this.getAsset("Eve", assetId);
+
+	expect(this.events).to.deep.equal(events);
+	expect(assetDetails[2]).to.deep.equal(emissions);
+});
 
 /* User Story 2 (us2) */
 

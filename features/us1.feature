@@ -57,15 +57,33 @@ Feature: User Story 1
     Given The "Seller" has blasted the asset with the following parameters:
     """
     {
-      "metadata": "asset metadata",
-      "emission_category": "Upstream",
-      "emissions": 10,
-      "date": 1682632800
+      "metadata": {
+        "weight": 100
+      },
+      "emissions": [
+        {
+          "category": "Upstream",
+          "emissions": 10,
+          "primary": true,
+          "balanced": true,
+          "date": 1682632800
+        }
+      ]
     }
     """
 
-    When "Seller" transfers asset with ID 1 to "Buyer" with new "Transport" emission with the amount of 10 grams per kilo on the date 1682632800
-
+    When "Seller" transfers asset with ID 1 to "Buyer" with emissions of:
+    """
+    [
+      {
+        "category": "Transport",
+        "primary": true,
+        "balanced": true,
+        "emissions": 10,
+        "date": 1702632800
+      }
+    ]
+    """
     Then "Buyer" will be the new owner of asset 1, the emissions and transfer events will be the following:
     """
     {
@@ -82,12 +100,66 @@ Feature: User Story 1
           "primary": true,
           "balanced": true,
           "emissions": 10,
-          "date": 1682632800
+          "date": 1702632800
         }
       ],
       "events": [
         {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
-        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,682,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,702,632,800","10"]}}
+      ]
+    }
+    """
+  Scenario: Seller adds emissions to asset
+    Given The "Seller" has blasted the following asset:
+    """
+    {
+      "metadata": {
+        "weight": 100
+      },
+      "emissions": [
+        {
+          "category": "Upstream",
+          "emissions": 10,
+          "primary": true,
+          "balanced": true,
+          "date": 1682632800
+        }
+      ]
+    }
+    """
+
+    When "Seller" adds the following emission to the asset with ID 1:
+    """
+    {
+      "category": "Transport",
+      "primary": true,
+      "balanced": true,
+      "emissions": 10,
+      "date": 1782632800
+    }
+    """
+
+    Then The asset 1 will be:
+    """
+    {
+      "emissions": [
+        {
+          "category": "Upstream",
+          "primary": true,
+          "balanced": true,
+          "emissions": 10,
+          "date": 1682632800
+        },
+        {
+          "category": "Transport",
+          "primary": true,
+          "balanced": true,
+          "emissions": 10,
+          "date": 1782632800
+        }
+      ],
+      "events": [
+        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,782,632,800","10"]}}
       ]
     }
     """

@@ -163,26 +163,9 @@ class UserStoryWorld {
 		});
 	}
 
-	async transferAsset(
-		senderName,
-		assetId,
-		recipientName,
-		emissionCategory,
-		emissions,
-		date
-	) {
+	async transferAsset(senderName, assetId, recipientName, emissions) {
 		const sender = this.accounts[senderName];
 		const receiver = this.accounts[recipientName];
-
-		const assetEmissions = [
-			{
-				category: emissionCategory,
-				primary: true,
-				balanced: true,
-				date: date,
-				emissions: emissions,
-			},
-		];
 
 		const { gasRequired, storageDeposit } = await this.dryRun(
 			sender,
@@ -190,7 +173,7 @@ class UserStoryWorld {
 			this.defaultTxOptions,
 			receiver.address,
 			assetId,
-			assetEmissions
+			emissions
 		);
 
 		let txOptions = {
@@ -202,8 +185,36 @@ class UserStoryWorld {
 			txOptions,
 			receiver.address,
 			assetId,
-			assetEmissions
+			emissions
 		);
+
+		await new Promise((resolve) => {
+			this.signAndSend(sender, transferExtrinsic, (result) => {
+				this.events = this.getEvents(result);
+				resolve();
+			});
+		});
+	}
+
+	async addEmission(senderName, assetId, emission) {
+		const sender = this.accounts[senderName];
+
+		const { gasRequired, storageDeposit } = await this.dryRun(
+			sender,
+			"assetCO2Emissions::addEmissions",
+			this.defaultTxOptions,
+			assetId,
+			emission
+		);
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
+		let transferExtrinsic = this.contract.tx[
+			"assetCO2Emissions::addEmissions"
+		](txOptions, assetId, emission);
 
 		await new Promise((resolve) => {
 			this.signAndSend(sender, transferExtrinsic, (result) => {
