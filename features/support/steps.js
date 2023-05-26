@@ -10,19 +10,16 @@ Given("I have the environment prepared.", async function () {
 });
 
 When(
-	"{string} creates an asset with metadata: {string} and {string} emissions with the amount: {int} Grams per kilo CO2 emitted from date: {int}.",
-	async function (caller, metadata, emission_category, emissions, date) {
-		let emissionInfo = [
-			{
-				category: emission_category,
-				primary: true,
-				balanced: true,
-				date: date,
-				emissions: emissions,
-			},
-		];
+	"{string} blasts an asset defined as the following:",
+	async function (caller, jsonString) {
+		let asset = JSON.parse(jsonString);
 		let assetParent = null;
-		await this.blastAsset(caller, metadata, assetParent, emissionInfo);
+		await this.blastAsset(
+			caller,
+			JSON.stringify(asset.metadata),
+			assetParent,
+			asset.emissions
+		);
 	}
 );
 

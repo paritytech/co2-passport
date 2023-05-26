@@ -11,14 +11,30 @@ Feature: User Story 1
   Scenario: Seller creates an asset
     Given I have the environment prepared.
 
-    When "Seller" creates an asset with metadata: "asset metadata" and "Upstream" emissions with the amount: 10 Grams per kilo CO2 emitted from date: 1682632800.
+    When "Seller" blasts an asset defined as the following:
+    """
+    {
+      "metadata": {
+        "weight": 100
+      },
+      "emissions": [
+        {
+          "category": "Upstream",
+          "emissions": 10,
+          "primary": true,
+          "balanced": true,
+          "date": 1682632800
+        }
+      ]
+    }
+    """
 
     Then The asset 1 and emitted events will be the following:
     """
     {
       "asset": [
         1,
-        "0x6173736574206d65746164617461",
+        "0x7b22776569676874223a3130307d",
         [
           {
             "category": "Upstream",
@@ -31,7 +47,7 @@ Feature: User Story 1
         null
       ],
       "events": [
-        {"event":{"name":"Blasted","args":["1","asset metadata","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
+        {"event":{"name":"Blasted","args":["1","{\"weight\":100}","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
         {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
       ]
     }

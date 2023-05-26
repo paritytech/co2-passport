@@ -19,6 +19,8 @@ const PROOF_SIZE = new BN(1000000);
 // Unlimited storage deposit
 const STORAGE_DEPOSIT_LIMIT = null;
 
+const INITIAL_BALANCE = 100_000_000_000_000;
+
 // dev mnemonic
 const MNENOMIC =
 	"bottom drive obey lake curtain smoke basket hold race lonely fit walk";
@@ -52,9 +54,9 @@ class UserStoryWorld {
 		};
 
 		await this.deploySmartContract(contract);
-		await this.initiateAccountWithBalance("Seller", 100_000_000_000_000);
-		await this.initiateAccountWithBalance("Buyer", 100_000_000_000_000);
-		await this.initiateAccountWithBalance("Eve", 100_000_000_000_000);
+		await this.initiateAccountWithBalance("Seller", INITIAL_BALANCE);
+		await this.initiateAccountWithBalance("Buyer", INITIAL_BALANCE);
+		await this.initiateAccountWithBalance("Eve", INITIAL_BALANCE);
 	}
 
 	async deploySmartContract(contract) {
