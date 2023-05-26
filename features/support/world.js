@@ -114,16 +114,34 @@ class UserStoryWorld {
 
 		const assetOwner = sender.address;
 
-		const { result, output } = await this.dryRun(
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
 			"setContractOwner",
 			this.defaultTxOptions,
 			assetOwner
 		);
 
-		if (result.isOk) {
-			this.readOutput = output.toJSON().ok;
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
 		}
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
+		let setOwnerExtrinsic = this.contract.tx["setContractOwner"](
+			txOptions,
+			assetOwner
+		);
+
+		await new Promise((resolve) => {
+			this.signAndSend(sender, setOwnerExtrinsic, (result) => {
+				this.events = this.getEvents(result);
+				resolve();
+			});
+		});
 	}
 
 	async blastAsset(account_name, metadata, assetParent, assetEmissions) {
@@ -132,7 +150,7 @@ class UserStoryWorld {
 		const assetOwner = sender.address;
 
 		// do dry run to get the required gas and storage deposit
-		const { gasRequired, storageDeposit } = await this.dryRun(
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
 			"assetCO2Emissions::blast",
 			this.defaultTxOptions,
@@ -141,6 +159,11 @@ class UserStoryWorld {
 			assetEmissions,
 			assetParent
 		);
+
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
+		}
 
 		let txOptions = {
 			gasLimit: gasRequired,
@@ -167,7 +190,7 @@ class UserStoryWorld {
 		const sender = this.accounts[senderName];
 		const receiver = this.accounts[recipientName];
 
-		const { gasRequired, storageDeposit } = await this.dryRun(
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
 			"assetCO2Emissions::transfer",
 			this.defaultTxOptions,
@@ -175,6 +198,11 @@ class UserStoryWorld {
 			assetId,
 			emissions
 		);
+
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
+		}
 
 		let txOptions = {
 			gasLimit: gasRequired,
@@ -199,13 +227,18 @@ class UserStoryWorld {
 	async addEmission(senderName, assetId, emission) {
 		const sender = this.accounts[senderName];
 
-		const { gasRequired, storageDeposit } = await this.dryRun(
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
 			"assetCO2Emissions::addEmissions",
 			this.defaultTxOptions,
 			assetId,
 			emission
 		);
+
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
+		}
 
 		let txOptions = {
 			gasLimit: gasRequired,

@@ -55,6 +55,10 @@ When(
 	"{string} transfers asset with ID {int} to {string} with emissions of:",
 	async function (seller, assetId, buyer, jsonString) {
 		let emissions = JSON.parse(jsonString);
+
+		let err = await this.transferAsset("Eve", assetId, buyer, emissions);
+		expect(err).to.equal("NotOwner");
+
 		await this.transferAsset(seller, assetId, buyer, emissions);
 	}
 );
@@ -95,6 +99,8 @@ When(
 	async function (seller, assetId, jsonString) {
 		let emission = JSON.parse(jsonString);
 
+		let err = await this.addEmission("Eve", assetId, emission);
+		expect(err).to.equal("NotOwner");
 		await this.addEmission(seller, assetId, emission);
 	}
 );
@@ -199,6 +205,6 @@ When("The contract owner updgrades the contract", async function () {
 
 Then("The contract will be upgraded", async function () {
 	// This should return `AlreadyPaused` error to showcase the contract upgraded
-	await this.setContractOwner("Seller");
-	expect(this.readOutput.err).to.equal("AlreadyPaused");
+	let err = await this.setContractOwner("Seller");
+	expect(err).to.equal("AlreadyPaused");
 });
