@@ -38,7 +38,7 @@ Then(
 );
 
 Given(
-	"the {string} has blasted the asset with the following parameters:",
+	"The {string} has blasted the asset with the following parameters:",
 	async function (caller, jsonString) {
 		let asset = JSON.parse(jsonString);
 

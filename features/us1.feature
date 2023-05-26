@@ -5,6 +5,8 @@ Feature: User Story 1
         - I add my process and transport emissions from me to my customers in Kg CO2e emitted per metric tons of my product quantity.
         - I add upstream emissions.
         - I send the token to my buyer.
+        - I verify the new owner of the token.
+        - I verify the emissions are correct in the asset.
 
   Scenario: Seller creates an asset
     Given I have the environment prepared.
@@ -36,7 +38,7 @@ Feature: User Story 1
     """
 
   Scenario: Seller tranfers asset to Buyer
-    Given the "Seller" has blasted the asset with the following parameters:
+    Given The "Seller" has blasted the asset with the following parameters:
     """
     {
       "metadata": "asset metadata",

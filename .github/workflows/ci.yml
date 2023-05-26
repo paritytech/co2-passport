@@ -109,7 +109,6 @@ jobs:
 
             - name: Run E2E JS tests
               run: |
-                  cargo contract build --release
                   substrate-contracts-node --dev &
                   sleep 10
                   yarn test --exit
