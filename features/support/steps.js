@@ -114,8 +114,14 @@ When(
 	}
 );
 Then(
-	"The following result should be returned and the offchain calculation for {string} emissions not earlier than the date {int} should be {float}",
-	function (filterCategory, filterDate, expectedEmissions, docString) {
+	"The emissions can be calculated offchain for {string} emissions between the dates {int} and {int} with the total equal to {float} based on the following:",
+	function (
+		filterCategory,
+		filterDateFrom,
+		filterDateTo,
+		expectedEmissions,
+		docString
+	) {
 		expect(this.readOutput).to.deep.equal(JSON.parse(docString));
 
 		// The recursive formula is defined as:
@@ -133,17 +139,19 @@ Then(
 		for (let asset of this.readOutput.reverse()) {
 			let metadata = JSON.parse(hexToString(asset[1]));
 			let emissions = asset[2];
-			let totalAssetEmissions = 0;
 
-			for (emissions of emissions) {
-				if (emissions.date < filterDate) {
-					continue;
-				}
-
-				if (emissions.category === filterCategory) {
-					totalAssetEmissions += emissions.emissions;
-				}
-			}
+			// Calculate total emissions for the current asset.
+			// Removes emissions outside the date range of filterDateFrom and filterDateTo
+			// and filters by category
+			const totalAssetEmissions = emissions
+				.filter((emission) => {
+					return (
+						emission.date > filterDateFrom &&
+						emission.date < filterDateTo &&
+						emission.category === filterCategory
+					);
+				})
+				.reduce((total, emission) => total + emission.emissions, 0);
 
 			// base case
 			if (asset[3] === null) {

@@ -26,7 +26,7 @@ Feature: User Story 2
         },
         "emissions": [
           {
-            "emission_category": "Process",
+            "emission_category": "Upstream",
             "emissions": 10,
             "date": 1705040054
           }
@@ -68,7 +68,7 @@ Feature: User Story 2
 
     When "Buyer" performs a query on the asset with ID 4
 
-    Then The following result should be returned and the offchain calculation for "Upstream" emissions not earlier than the date 1700000000 should be 3
+    Then The emissions can be calculated offchain for "Upstream" emissions between the dates 1700000000 and 1900000000 with the total equal to 6 based on the following:
     """
     [
       [
@@ -111,7 +111,7 @@ Feature: User Story 2
         "0x7b22776569676874223a35307d",
         [
           {
-            "category": "Process",
+            "category": "Upstream",
             "primary": true,
             "balanced": true,
             "emissions": 10,
