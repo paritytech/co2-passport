@@ -110,3 +110,41 @@ cargo contract build --release
     - Press `Next` button.
     - Press `Upload and Instantiate` button.
 1. Interact with the Smart Contract.
+
+## Integration Tests
+
+The integration tests use [Cucumber.js](https://cucumber.io/docs/installation/javascript/).
+
+The tests are defined in [features/](./features/).
+The following files describe the tests and user stories using [Gherkin Syntax](https://cucumber.io/docs/gherkin/):
+
+-   [features/us1.feature](./features/us1.feature)
+-   [features/us2.feature](./features/us2.feature)
+-   [features/us3.feature](./features/us3.feature)
+
+The test implementations are found in:
+
+-   [features/support/steps.js](./features/support/steps.js): the test definitions using Cucumber.js
+-   [features/support/world.js](./features/support/world.js): the enviroment class used by the tests that manages interactions with Substrate and the contract.
+
+### Running Tests
+
+From the project root
+
+1. Install dependencies:
+
+```
+yarn
+```
+
+2. Start `substrate-contracts-node` using [v0.24.0](https://github.com/paritytech/substrate-contracts-node/releases/tag/v0.24.0)
+
+```
+substrate-contracts-node
+```
+
+3. Run the tests:
+
+```
+yarn test
+```
