@@ -148,7 +148,6 @@ class UserStoryWorld {
 		const sender = this.accounts[account_name];
 
 		const assetOwner = sender.address;
-
 		// do dry run to get the required gas and storage deposit
 		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
@@ -260,12 +259,17 @@ class UserStoryWorld {
 	async pauseAsset(senderName, assetId) {
 		const sender = this.accounts[senderName];
 
-		const { gasRequired, storageDeposit } = await this.dryRun(
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
 			sender,
 			"assetCO2Emissions::pause",
 			this.defaultTxOptions,
 			assetId
 		);
+
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
+		}
 
 		let txOptions = {
 			gasLimit: gasRequired,
@@ -286,7 +290,7 @@ class UserStoryWorld {
 	}
 
 	// Helper to split an asset into the given child assets
-	async createAssetTree(caller, assets) {
+	async createAssetTree(caller, assets, start = 0) {
 		for (let [i, asset] of assets.entries()) {
 			let emissions = [];
 			for (const emission of asset.emissions) {
@@ -300,10 +304,12 @@ class UserStoryWorld {
 			}
 
 			let assetParent = null;
+			let parentId = i + start;
 
-			if (i > 0) {
-				assetParent = [i, asset.metadata.weight];
-				await this.pauseAsset(caller, i);
+			if (parentId > 0) {
+				assetParent = [parentId, asset.metadata.weight];
+				// pause the parent asset
+				await this.pauseAsset(caller, parentId);
 			}
 
 			await this.blastAsset(

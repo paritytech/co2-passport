@@ -114,6 +114,70 @@ Then("The asset {int} will be:", async function (assetId, jsonString) {
 	expect(assetDetails[2]).to.deep.equal(emissions);
 });
 
+Given(
+	"The {string} blasts the following parent asset:",
+	async function (caller, jsonString) {
+		let asset = JSON.parse(jsonString);
+
+		let assetParent = null;
+
+		await this.prepareEnvironment();
+		await this.blastAsset(
+			caller,
+			JSON.stringify(asset.metadata),
+			assetParent,
+			asset.emissions
+		);
+	}
+);
+
+When(
+	"{string} pauses the parent asset {int} and creates a child asset, which creates a child, defined as:",
+	async function (caller, assetId, jsonString) {
+		let assets = JSON.parse(jsonString);
+
+		let err = await this.pauseAsset("Eve", assetId);
+		expect(err).to.equal("NotOwner");
+
+		// try to blast child asset with un-paused parent
+		err = await this.blastAsset(
+			caller,
+			JSON.stringify(assets[0].metadata),
+			[assetId, 25],
+			[
+				{
+					category: "Upstream",
+					primary: true,
+					balanced: true,
+					date: 1755040054,
+					emissions: 10,
+				},
+			]
+		);
+		// ensure error is thrown
+		expect(err).to.equal("NotPaused");
+
+		// Process to blast child asset:
+		// 1: Pause Parent Asset
+		// 2: Blast child asset with parent id as parent and weight relation
+		// 3. Repeat to create child of child
+
+		// Use helper to create asset tree
+		await this.createAssetTree(caller, assets, assetId);
+	}
+);
+
+Then(
+	"The asset {int} when queried will equal the following asset tree:",
+	async function (assetId, jsonString) {
+		let assets = JSON.parse(jsonString);
+
+		await this.queryEmissions("Eve", assetId);
+
+		expect(this.readOutput).to.deep.equal(assets);
+	}
+);
+
 /* User Story 2 (us2) */
 
 Given(

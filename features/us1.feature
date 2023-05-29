@@ -7,6 +7,7 @@ Feature: User Story 1
         - I send the token to my buyer.
         - I verify the new owner of the token.
         - I verify the emissions are correct in the asset.
+        - I can build an asset tree by altering the original asset.
 
   Scenario: Seller creates an asset
     Given I have the environment prepared.
@@ -162,4 +163,101 @@ Feature: User Story 1
         {"event":{"name":"Emission","args":["1","Transport",true,true,"1,782,632,800","10"]}}
       ]
     }
+    """
+
+  Scenario: Seller creates asset tree
+    Given The "Seller" blasts the following parent asset:
+    """
+    {
+      "metadata": {
+        "weight": 100
+      },
+      "emissions": [
+        {
+          "category": "Upstream",
+          "emissions": 15,
+          "primary": true,
+          "balanced": true,
+          "date": 1682632800
+        }
+      ]
+    }
+    """
+
+    When "Seller" pauses the parent asset 1 and creates a child asset, which creates a child, defined as:
+    """
+    [
+      {
+        "metadata": {
+          "weight": 50
+        },
+        "emissions": [
+          {
+            "emission_category": "Upstream",
+            "emissions": 10,
+            "date": 1705040054
+          }
+        ]
+      },
+      {
+        "metadata": {
+          "weight": 25
+        },
+        "emissions": [
+          {
+            "emission_category": "Upstream",
+            "emissions": 5,
+            "date": 1755040054
+          }
+        ]
+      }
+    ]
+    """
+
+    Then The asset 3 when queried will equal the following asset tree:
+    """
+    [
+      [
+        3,
+        "0x7b22776569676874223a32357d",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 5,
+            "date": 1755040054
+          }
+        ],
+        [2, 25]
+      ],
+      [
+        2,
+        "0x7b22776569676874223a35307d",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 10,
+            "date": 1705040054
+          }
+        ],
+        [1, 50]
+      ],
+      [
+        1,
+        "0x7b22776569676874223a3130307d",
+        [
+          {
+            "category": "Upstream",
+            "primary": true,
+            "balanced": true,
+            "emissions": 15,
+            "date": 1682632800
+          }
+        ],
+        null
+      ]
+    ]
     """
