@@ -89,12 +89,18 @@ class UserStoryWorld {
 		let oldContract = this.contract;
 		await this.deploySmartContract(contract);
 
-		const { gasRequired, storageDeposit } = await this.dryRun(
-			this.sudo,
-			"setCode",
-			this.defaultTxOptions,
-			this.codeHash
-		);
+		const { gasRequired, storageDeposit, result, output } =
+			await this.dryRun(
+				this.sudo,
+				"setCode",
+				this.defaultTxOptions,
+				this.codeHash
+			);
+
+		if (result.isOk) {
+			this.readOutput = output.toJSON().ok;
+			return this.readOutput;
+		}
 
 		let txOptions = {
 			gasLimit: gasRequired,
@@ -109,184 +115,90 @@ class UserStoryWorld {
 		await this.signAndSend(this.sudo, upgradeExtrinsic, () => {});
 	}
 
-	async setContractOwner(newOwner) {
-		const sender = this.accounts[newOwner];
+	async setContractOwner(senderName, newOwnerName) {
+		const newOwner = this.accounts[newOwnerName];
 
-		const assetOwner = sender.address;
-
-		const { gasRequired, storageDeposit, output } = await this.dryRun(
-			sender,
+		return await this.sendMessage(
+			senderName,
 			"setContractOwner",
-			this.defaultTxOptions,
-			assetOwner
+			newOwner.address
 		);
-
-		// Check if contract error exists
-		if (output.toJSON().ok && output.toJSON().ok.err) {
-			return output.toJSON().ok.err;
-		}
-
-		let txOptions = {
-			gasLimit: gasRequired,
-			storageDeposit,
-		};
-
-		let setOwnerExtrinsic = this.contract.tx["setContractOwner"](
-			txOptions,
-			assetOwner
-		);
-
-		await new Promise((resolve) => {
-			this.signAndSend(sender, setOwnerExtrinsic, (result) => {
-				this.events = this.getEvents(result);
-				resolve();
-			});
-		});
 	}
 
-	async blastAsset(account_name, metadata, assetParent, assetEmissions) {
-		const sender = this.accounts[account_name];
+	async blastAsset(senderName, metadata, assetParent, assetEmissions) {
+		const sender = this.accounts[senderName];
 
-		const assetOwner = sender.address;
-		// do dry run to get the required gas and storage deposit
-		const { gasRequired, storageDeposit, output } = await this.dryRun(
-			sender,
+		return await this.sendMessage(
+			senderName,
 			"assetCO2Emissions::blast",
-			this.defaultTxOptions,
-			assetOwner,
+			sender.address,
 			metadata,
 			assetEmissions,
 			assetParent
 		);
-
-		// Check if contract error exists
-		if (output.toJSON().ok && output.toJSON().ok.err) {
-			return output.toJSON().ok.err;
-		}
-
-		let txOptions = {
-			gasLimit: gasRequired,
-			storageDeposit,
-		};
-
-		let blastExtrinsic = this.contract.tx["assetCO2Emissions::blast"](
-			txOptions,
-			assetOwner,
-			metadata,
-			assetEmissions,
-			assetParent
-		);
-
-		await new Promise((resolve) => {
-			this.signAndSend(sender, blastExtrinsic, (result) => {
-				this.events = this.getEvents(result);
-				resolve();
-			});
-		});
 	}
 
 	async transferAsset(senderName, assetId, recipientName, emissions) {
-		const sender = this.accounts[senderName];
 		const receiver = this.accounts[recipientName];
-
-		const { gasRequired, storageDeposit, output } = await this.dryRun(
-			sender,
+		return await this.sendMessage(
+			senderName,
 			"assetCO2Emissions::transfer",
-			this.defaultTxOptions,
 			receiver.address,
 			assetId,
 			emissions
 		);
-
-		// Check if contract error exists
-		if (output.toJSON().ok && output.toJSON().ok.err) {
-			return output.toJSON().ok.err;
-		}
-
-		let txOptions = {
-			gasLimit: gasRequired,
-			storageDeposit,
-		};
-
-		let transferExtrinsic = this.contract.tx["assetCO2Emissions::transfer"](
-			txOptions,
-			receiver.address,
-			assetId,
-			emissions
-		);
-
-		await new Promise((resolve) => {
-			this.signAndSend(sender, transferExtrinsic, (result) => {
-				this.events = this.getEvents(result);
-				resolve();
-			});
-		});
 	}
 
 	async addEmission(senderName, assetId, emission) {
-		const sender = this.accounts[senderName];
-
-		const { gasRequired, storageDeposit, output } = await this.dryRun(
-			sender,
+		return await this.sendMessage(
+			senderName,
 			"assetCO2Emissions::addEmissions",
-			this.defaultTxOptions,
 			assetId,
 			emission
 		);
-
-		// Check if contract error exists
-		if (output.toJSON().ok && output.toJSON().ok.err) {
-			return output.toJSON().ok.err;
-		}
-
-		let txOptions = {
-			gasLimit: gasRequired,
-			storageDeposit,
-		};
-
-		let transferExtrinsic = this.contract.tx[
-			"assetCO2Emissions::addEmissions"
-		](txOptions, assetId, emission);
-
-		await new Promise((resolve) => {
-			this.signAndSend(sender, transferExtrinsic, (result) => {
-				this.events = this.getEvents(result);
-				resolve();
-			});
-		});
 	}
 
 	async pauseAsset(senderName, assetId) {
-		const sender = this.accounts[senderName];
-
-		const { gasRequired, storageDeposit, output } = await this.dryRun(
-			sender,
+		return await this.sendMessage(
+			senderName,
 			"assetCO2Emissions::pause",
-			this.defaultTxOptions,
 			assetId
 		);
+	}
 
-		// Check if contract error exists
-		if (output.toJSON().ok && output.toJSON().ok.err) {
-			return output.toJSON().ok.err;
-		}
-
-		let txOptions = {
-			gasLimit: gasRequired,
-			storageDeposit,
-		};
-
-		let pauseExtrinsic = this.contract.tx["assetCO2Emissions::pause"](
-			txOptions,
+	async getOwnerOf(senderName, assetId) {
+		return this.readContract(
+			senderName,
+			"assetCO2Emissions::ownerOf",
 			assetId
 		);
+	}
 
-		await new Promise((resolve) => {
-			this.signAndSend(sender, pauseExtrinsic, (result) => {
-				this.events = this.getEvents(result);
-				resolve();
-			});
-		});
+	async getAsset(senderName, assetId) {
+		return this.readContract(
+			senderName,
+			"assetCO2Emissions::getAsset",
+			assetId
+		);
+	}
+
+	async queryEmissions(senderName, assetId) {
+		return this.readContract(
+			senderName,
+			"assetCO2Emissions::queryEmissions",
+			assetId
+		);
+	}
+
+	async initiateAccountWithBalance(accountName, balance) {
+		const account = this.keyring.addFromUri(MNENOMIC + "//" + accountName);
+		this.accounts[accountName] = account;
+
+		const extrinsic = this.api.tx.sudo.sudo(
+			this.api.tx.balances.setBalance(account.address, balance, 0)
+		);
+
+		await this.signAndSend(this.sudo, extrinsic, () => {});
 	}
 
 	// Helper to split an asset into the given child assets
@@ -321,66 +233,9 @@ class UserStoryWorld {
 		}
 	}
 
-	async getOwnerOf(senderName, assetId) {
-		const sender = this.accounts[senderName];
-
-		const { result, output } = await this.getContractState(
-			sender,
-			"assetCO2Emissions::ownerOf",
-			this.defaultTxOptions,
-			assetId
-		);
-
-		if (result.isOk) {
-			this.readOutput = output.toJSON().ok;
-			return this.readOutput;
-		}
-	}
-
-	async getAsset(senderName, assetId) {
-		const sender = this.accounts[senderName];
-
-		const { result, output } = await this.getContractState(
-			sender,
-			"assetCO2Emissions::getAsset",
-			this.defaultTxOptions,
-			assetId
-		);
-
-		if (result.isOk) {
-			this.readOutput = output.toJSON().ok;
-			return this.readOutput;
-		}
-	}
-
-	async queryEmissions(senderName, assetId) {
-		const sender = this.accounts[senderName];
-
-		const { result, output } = await this.getContractState(
-			sender,
-			"assetCO2Emissions::queryEmissions",
-			this.defaultTxOptions,
-			assetId
-		);
-
-		if (result.isOk) {
-			this.readOutput = output.toJSON().ok;
-			return this.readOutput;
-		}
-	}
-
-	async initiateAccountWithBalance(accountName, balance) {
-		const account = this.keyring.addFromUri(MNENOMIC + "//" + accountName);
-		this.accounts[accountName] = account;
-
-		const extrinsic = this.api.tx.sudo.sudo(
-			this.api.tx.balances.setBalance(account.address, balance, 0)
-		);
-
-		await this.signAndSend(this.sudo, extrinsic, () => {});
-	}
-
 	getEvents(result) {
+		if (!result.contractEvents) return [];
+
 		let events = [];
 		for (const event of result.contractEvents) {
 			const eventItem = {
@@ -422,6 +277,52 @@ class UserStoryWorld {
 		}
 
 		return o;
+	}
+
+	async readContract(senderName, message, ...params) {
+		const sender = this.accounts[senderName];
+
+		const { result, output } = await this.getContractState(
+			sender,
+			message,
+			this.defaultTxOptions,
+			...params
+		);
+
+		if (result.isOk) {
+			this.readOutput = output.toJSON().ok;
+			return this.readOutput;
+		}
+	}
+
+	async sendMessage(senderName, message, ...params) {
+		const sender = this.accounts[senderName];
+
+		const { gasRequired, storageDeposit, output } = await this.dryRun(
+			sender,
+			message,
+			this.defaultTxOptions,
+			...params
+		);
+
+		// Check if contract error exists
+		if (output.toJSON().ok && output.toJSON().ok.err) {
+			return output.toJSON().ok.err;
+		}
+
+		let txOptions = {
+			gasLimit: gasRequired,
+			storageDeposit,
+		};
+
+		let pauseExtrinsic = this.contract.tx[message](txOptions, ...params);
+
+		await new Promise((resolve) => {
+			this.signAndSend(sender, pauseExtrinsic, (result) => {
+				this.events = this.getEvents(result);
+				resolve();
+			});
+		});
 	}
 
 	async signAndSend(wallet, extrinsic, callback) {

@@ -269,6 +269,6 @@ When("The contract owner updgrades the contract", async function () {
 
 Then("The contract will be upgraded", async function () {
 	// This should return `AlreadyPaused` error to showcase the contract upgraded
-	let err = await this.setContractOwner("Seller");
+	let err = await this.setContractOwner("Seller", "Seller");
 	expect(err).to.equal("AlreadyPaused");
 });
