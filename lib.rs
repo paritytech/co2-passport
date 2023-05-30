@@ -238,7 +238,7 @@ mod asset_co2_emissions {
         ///
         /// * `NotOwner` - When transaction sender is not the current role owner.
         /// * `Already granted` - When the account is already role member.
-        /// * `EmptyRole` - Account list cannot be emty.
+        /// * `EmptyRole` - Account list cannot be empty.
         ///
         /// # Events
         ///
@@ -298,7 +298,7 @@ mod asset_co2_emissions {
         /// * `to` - The account that will own the Asset.
         /// * `metadata` - Immutable asset's metadata (physical details of steel); Can be a string, a JSON string or a link to IPFS.
         /// * `emissions` - CO2 emissions during asset creation (like blasting or splitting steel).
-        /// * `parent` - Information about asset creation from the exisitng Asset (in the case of e.g. splitting steel):
+        /// * `parent` - Information about asset creation from the existing Asset (in the case of e.g. splitting steel):
         ///                 - identifier of the Asset's parent
         ///                 - information about relation (parent's quantity used) for external systems.
         ///
@@ -326,7 +326,7 @@ mod asset_co2_emissions {
         /// # Arguments
         ///
         /// * `to` - The new owner
-        /// * `id` - The Asset to be transfered
+        /// * `id` - The Asset to be transferred
         /// * `emissions` - CO2 emission caused by the Asset transfer
         ///
         /// # Errors
@@ -463,7 +463,7 @@ mod asset_co2_emissions {
         co2_emissions: Mapping<AssetId, Vec<CO2Emissions>>,
         // metadata of an asset
         metadata: Mapping<AssetId, Metadata>,
-        // what assses are paused
+        // what assets are paused
         paused: Mapping<AssetId, bool>,
         // child asset's parent
         parent: Mapping<AssetId, ParentDetails>,
@@ -715,7 +715,7 @@ mod asset_co2_emissions {
             Ok(())
         }
 
-        /// Return the next id and increae by 1
+        /// Return the next id and increase by 1
         fn next_id(&mut self) -> Result<AssetId, AssetCO2EmissionsError> {
             let asset_id = self.next_id;
             self.next_id = self
@@ -731,7 +731,7 @@ mod asset_co2_emissions {
             let mut tree_path: Vec<AssetDetails> = Vec::new();
             loop {
                 // This function is called after initial check if asset exists
-                // So it must contain asset and its childrn -- unwrap must be safe
+                // So it must contain asset and its children -- unwrap must be safe
                 // It has been confirmed in previous test cases
                 // If not, we need to capture that sth is wrong with the smart contract
                 let asset: AssetDetails = self
@@ -877,7 +877,7 @@ mod asset_co2_emissions {
         #[ink(message)]
         fn get_asset(&self, id: AssetId) -> Option<AssetDetails> {
             match self.get_metadata(id) {
-                // Asset does not exist, retun None
+                // Asset does not exist, return None
                 None => None,
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
