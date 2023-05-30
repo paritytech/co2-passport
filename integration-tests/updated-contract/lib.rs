@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#[allow(unused_variables, unused_assignments, dead_code)]
 #[ink::contract]
 mod asset_co2_emissions {
     use ink::prelude::collections::{BTreeMap, BTreeSet};

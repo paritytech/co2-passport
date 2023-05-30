@@ -1,87 +1,106 @@
 # Non-Fungible Assets with CO2 Emissions tracking.
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)   [![CI - Check Set-Up, Build & Test](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
+
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![CI - Check Set-Up, Build & Test](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
 
 ## Local development setup
 
 ### Rust and Cargo
+
 Follow the [instruction](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install Rust and Cargo.
 
 #### Cargo clippy linter
+
 Follow the [instruction](https://github.com/rust-lang/rust-clippy#usage) to install `clippy`.
 
 ### ink! smart contract tools
+
 Follow the [instruction](https://use.ink/getting-started/setup) to install `ink!` smart contract tools.
 
 ### pre-commit
+
 Follow the [instruction](https://pre-commit.com/#installation) to install `pre-commit` tool.
 
 #### Install the git hook script
+
 ```sh
 pre-commit install
 ```
 
 ## Development
+
 Below you can find some base commands, for more information check [official documentation](https://use.ink/).
 
-
 ### Format code
+
 ```sh
 cargo +nightly fmt
 ```
 
 ### Run clippy linter
+
 ```sh
 cargo +nightly clippy --all-features
 ```
 
 ### Check that smart contracts build to WASM
+
 ```sh
 cargo contract check
 ```
 
 ### Testing
+
 ```sh
 cargo test --features e2e-tests
 ```
 
 ### Build smart contracts
+
 ```sh
 cargo contract build --release
 ```
 
 ### Run pre-commit
+
 ```sh
 pre-commit run --all-files
 ```
 
 ## CI Jobs
+
 This repository contains predefined GitHub actions for quality assurance.
 
 ### GitHub runners
-- Linux -> `ubuntu-20.04`
+
+-   Linux -> `ubuntu-20.04`
 
 ### Jobs
-- Formatting check -> `cargo +nightly fmt --check`
-- Linter check -> `cargo +nightly clippy --all-features`
-- Building smart contracts -> `cargo contract build`
-- Testing smart contracts -> `cargo test --features e2e-tests`
 
+-   Formatting check -> `cargo +nightly fmt --check`
+-   Linter check -> `cargo +nightly clippy --all-features`
+-   Building smart contracts -> `cargo contract build`
+-   Testing smart contracts -> `cargo test --features e2e-tests`
 
 ## Run Smart Contract locally
 
 ### Contracts Node
+
 In a separated terminal start the Contracts Node:
+
 ```sh
 substrate-contracts-node
 ```
 
 ### Smart Contract
+
 Build Smart Contract:
+
 ```sh
 cargo contract build --release
 ```
 
 ### Smart Contracts UI
+
 1. Go to [Contracts UI](https://contracts-ui.substrate.io/).
 1. Select `Upload a new contract`.
 1. In `Upload and Instantiate` window:
@@ -91,3 +110,41 @@ cargo contract build --release
     - Press `Next` button.
     - Press `Upload and Instantiate` button.
 1. Interact with the Smart Contract.
+
+## Integration Tests
+
+The integration tests use [Cucumber.js](https://cucumber.io/docs/installation/javascript/).
+
+The tests are defined in [features/](./features/).
+The following files describe the tests and user stories using [Gherkin Syntax](https://cucumber.io/docs/gherkin/):
+
+-   [features/us1.feature](./features/us1.feature)
+-   [features/us2.feature](./features/us2.feature)
+-   [features/us3.feature](./features/us3.feature)
+
+The test implementations are found in:
+
+-   [features/support/steps.js](./features/support/steps.js): the test definitions using Cucumber.js
+-   [features/support/world.js](./features/support/world.js): the enviroment class used by the tests that manages interactions with Substrate and the contract.
+
+### Running Tests
+
+From the project root
+
+1. Install dependencies:
+
+```
+yarn
+```
+
+2. Start `substrate-contracts-node` using [v0.24.0](https://github.com/paritytech/substrate-contracts-node/releases/tag/v0.24.0)
+
+```
+substrate-contracts-node
+```
+
+3. Run the tests:
+
+```
+yarn test
+```
