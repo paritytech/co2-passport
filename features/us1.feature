@@ -33,10 +33,10 @@ Feature: User Story 1
     Then The asset 1 and emitted events will be the following:
     """
     {
-      "asset": [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+      "asset": {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -45,8 +45,8 @@ Feature: User Story 1
             "date": 1682632800
           }
         ],
-        null
-      ],
+        "parent": null
+      },
       "events": [
         {"event":{"name":"Blasted","args":["1","{\"weight\":100}","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
         {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
@@ -217,10 +217,10 @@ Feature: User Story 1
     Then The asset 3 when queried will equal the following asset tree:
     """
     [
-      [
-        3,
-        "0x7b22776569676874223a32357d",
-        [
+      {
+        "assetId": 3,
+        "metadata": "0x7b22776569676874223a32357d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -229,12 +229,12 @@ Feature: User Story 1
             "date": 1755040054
           }
         ],
-        [2, 25]
-      ],
-      [
-        2,
-        "0x7b22776569676874223a35307d",
-        [
+        "parent": [2, 25]
+      },
+      {
+        "assetId": 2,
+        "metadata": "0x7b22776569676874223a35307d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -243,12 +243,12 @@ Feature: User Story 1
             "date": 1705040054
           }
         ],
-        [1, 50]
-      ],
-      [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+        "parent": [1, 50]
+      },
+      {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -257,7 +257,7 @@ Feature: User Story 1
             "date": 1682632800
           }
         ],
-        null
-      ]
+        "parent": null
+      }
     ]
     """

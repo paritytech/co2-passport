@@ -71,10 +71,10 @@ Feature: User Story 2
     Then The emissions can be calculated offchain for "Upstream" emissions between the dates 1700000000 and 1900000000 with the total equal to 6 based on the following:
     """
     [
-      [
-        4,
-        "0x7b22776569676874223a31357d",
-        [
+      {
+        "assetId": 4,
+        "metadata": "0x7b22776569676874223a31357d",
+        "emissions": [
           {
             "category": "Process",
             "primary": true,
@@ -83,12 +83,15 @@ Feature: User Story 2
             "date": 1765040054
           }
         ],
-        [3, 15]
-      ],
-      [
-        3,
-        "0x7b22776569676874223a32357d",
-        [
+        "parent": [
+          3,
+          15
+        ]
+      },
+      {
+        "assetId": 3,
+        "metadata": "0x7b22776569676874223a32357d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -104,12 +107,15 @@ Feature: User Story 2
             "date": 1755040054
           }
         ],
-        [2, 25]
-      ],
-      [
-        2,
-        "0x7b22776569676874223a35307d",
-        [
+        "parent": [
+          2,
+          25
+        ]
+      },
+      {
+        "assetId": 2,
+        "metadata": "0x7b22776569676874223a35307d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -118,12 +124,15 @@ Feature: User Story 2
             "date": 1705040054
           }
         ],
-        [1, 50]
-      ],
-      [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+        "parent": [
+          1,
+          50
+        ]
+      },
+      {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
             "primary": true,
@@ -132,7 +141,7 @@ Feature: User Story 2
             "date": 1682632800
           }
         ],
-        null
-      ]
+        "parent": null
+      }
     ]
     """

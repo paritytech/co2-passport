@@ -19,7 +19,14 @@ mod asset_co2_emissions {
     // Optional argument for referencing a parent asset that is split into child assets.
     pub type ParentDetails = Option<(AssetId, ParentRelation)>;
     // The type returned when querying for an Asset.
-    pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
+    #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct AssetDetails {
+        asset_id: AssetId,
+        metadata: Metadata,
+        emissions: Vec<CO2Emissions>,
+        parent: ParentDetails,
+    }
     pub type Description = Vec<u8>;
 
     // Max size of the Metadata vector.
@@ -737,7 +744,7 @@ mod asset_co2_emissions {
                 let asset: AssetDetails = self
                     .get_asset(asset_id)
                     .expect("Asset existence already checked");
-                let parent_details = asset.3;
+                let parent_details = asset.parent.clone();
                 tree_path.push(asset);
                 match parent_details {
                     None => break,
@@ -884,7 +891,12 @@ mod asset_co2_emissions {
                     let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
                     let parent = self.get_parent_details(id).expect("Parent must exist");
 
-                    Some((id, metadata, emissions, parent))
+                    Some(AssetDetails {
+                        asset_id: id,
+                        metadata,
+                        emissions,
+                        parent,
+                    })
                 }
             }
         }
@@ -2666,8 +2678,12 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let expected_value: Vec<AssetDetails> =
-                Vec::from([(asset_id, metadata, emissions, parent)]);
+            let expected_value: Vec<AssetDetails> = Vec::from([AssetDetails {
+                asset_id,
+                metadata,
+                emissions,
+                parent,
+            }]);
             let details_from_state = contract.query_emissions(asset_id);
             assert!(details_from_state.is_some());
             assert_eq!(expected_value, details_from_state.unwrap());
@@ -2698,8 +2714,12 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let mut expected_tree_path: Vec<AssetDetails> =
-                Vec::from([(asset_id, metadata.clone(), emissions, parent)]);
+            let mut expected_tree_path: Vec<AssetDetails> = Vec::from([AssetDetails {
+                asset_id,
+                metadata: metadata.clone(),
+                emissions,
+                parent,
+            }]);
 
             // create long token tree path
             for i in 1..1_000 {
@@ -2719,7 +2739,15 @@ mod asset_co2_emissions {
                     .is_ok());
 
                 asset_id += 1;
-                expected_tree_path.insert(0, (asset_id, metadata.clone(), emissions, parent));
+                expected_tree_path.insert(
+                    0,
+                    AssetDetails {
+                        asset_id,
+                        metadata: metadata.clone(),
+                        emissions,
+                        parent,
+                    },
+                );
             }
 
             let details_from_state = contract.query_emissions(asset_id);
