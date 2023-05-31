@@ -29,20 +29,20 @@ This smart contract is for tracking carbon emissions of steel. It is written in 
         -   [GitHub runners](#github-runners)
         -   [Jobs](#jobs)
     -   [Integration Tests](#integration-tests)
-        -   [Running Tests](#running-tests)
+        -   [Running Integration Tests](#running-integration-tests)
 
 ## Contract Overview
 
 This contract supports the following operations:
 
--   Updating contract
--   Blasting an asset: creating a new asset with the emissions required
--   Addinng additional emissions to an asset
--   Transfering an asset to a different account. Additional emissions added
--   Pausing an asset to prevent transferring. This is a prerequisite to splitting an asset.
--   Splitting an asset into child assets. The common reasons is due to steel cutting.
--   Querying detailins about an asset.
--   Querying the full parent tree of a child asset. This allows for calculating the total emissions a child asset has.
+-   Updating contract.
+-   Blasting an Asset - creating a new Asset with the CO2 Emissions required.
+-   Addinng additional CO2 Emissions to an Asset.
+-   Transfering an Asset to a different account. Additional C02 Emissions always added.
+-   Pausing an Asset to prevent transferring or adding new CO2 Emissions. This is a prerequisite to splitting an Asset.
+-   Splitting an Asset into child Assets. The common reasons is due to actions like steel cutting.
+-   Querying details about an Asset.
+-   Querying the full parent tree of a child Asset. This allows for calculating the total CO2 Emissions a child Asset has.
 
 ## Local development setup
 
@@ -106,8 +106,8 @@ There are several places where an ink! contract can be deployed! The [ink! docum
 
 This example will be using [Contracts on Rococo](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frococo-contracts-rpc.polkadot.io#/explorer) to deploy a contract.
 
-1. Get testnet tokens using [this faucet](https://use.ink/faucet/)
-2. Build the contract
+1. Get testnet tokens using [this faucet](https://use.ink/faucet/).
+2. Build the contract.
 
 ```sh
 cargo contract build --release
@@ -116,13 +116,13 @@ cargo contract build --release
 3. Navigate to the Contracts page at [contracts-ui.substrate.io](https://contracts-ui.substrate.io/).
 4. Ensure "Contracts (Rococo)" is selected.
    ![](images/contracts-home-page.png)
-5. Select `Upload a new contract`
+5. Select `Upload a new contract`.
    ![](images/contracts-page.png)
 6. Upload the built contract found at `./target/ink/asset_co2_emissions.contract`. This file contains the contract Wasm bytecode and the metadata.
    ![](images/contracs-deploy.png)
-7. Click `Next`, modify the limits as desired. The default values are generally sufficient
+7. Click `Next`, modify the limits as desired. The default values are generally sufficient.
    ![](images/contracts-upload.png)
-8. Click `Next` and finally `Upload and instantiate`
+8. Click `Next` and finally `Upload and instantiate`.
 9. The contract can now be used.
 
 The documentation found [here](https://use.ink/testnet) provides more details and also instructions on how deploy contracts using `cargo contract`.
@@ -181,7 +181,7 @@ This repository contains predefined GitHub actions for quality assurance.
 -   Linter check -> `cargo +nightly clippy --all-features`
 -   Building smart contracts -> `cargo contract build`
 -   Testing smart contracts -> `cargo test --features e2e-tests`
--   Integration tests -> `yarn test`
+-   Integration tests -> `yarn test --exit`
 
 ## Integration Tests
 
@@ -196,10 +196,10 @@ The following files describe the tests and user stories using [Gherkin Syntax](h
 
 The test implementations are found in:
 
--   [features/support/steps.js](./features/support/steps.js): the test definitions using Cucumber.js
+-   [features/support/steps.js](./features/support/steps.js): the test definitions using `Cucumber.js`.
 -   [features/support/world.js](./features/support/world.js): the enviroment class used by the tests that manages interactions with Substrate and the contract.
 
-### Running Tests
+### Running Integration Tests
 
 From the project root
 
@@ -212,11 +212,11 @@ yarn
 2. Start `substrate-contracts-node` using [v0.24.0](https://github.com/paritytech/substrate-contracts-node/releases/tag/v0.24.0)
 
 ```
-substrate-contracts-node
+substrate-contracts-node --dev
 ```
 
 3. Run the tests:
 
 ```
-yarn test
+yarn test --exit
 ```
