@@ -18,6 +18,13 @@ mod asset_co2_emissions {
     pub type ParentRelation = u128;
     // Optional argument for referencing a parent asset that is split into child assets.
     pub type ParentDetails = Option<(AssetId, ParentRelation)>;
+    // The parent details transfer object.
+    #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct ParentDetailsDTO {
+        parent_id: AssetId,
+        relation: ParentRelation,
+    }
     // The type returned when querying for an Asset.
     #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -25,7 +32,7 @@ mod asset_co2_emissions {
         asset_id: AssetId,
         metadata: Metadata,
         emissions: Vec<CO2Emissions>,
-        parent: ParentDetails,
+        parent: Option<ParentDetailsDTO>,
     }
     pub type Description = Vec<u8>;
 
@@ -97,7 +104,7 @@ mod asset_co2_emissions {
         id: AssetId,
         metadata: Metadata,
         owner: AccountId,
-        parent: ParentDetails,
+        parent: Option<ParentDetailsDTO>,
     }
 
     /// This emits when ownership of any Asset changes.
@@ -322,7 +329,7 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: ParentDetails,
+            parent: Option<ParentDetailsDTO>,
         ) -> Result<(), AssetCO2EmissionsError>;
 
         /// Transfers the ownership of an Asset to another account
@@ -430,7 +437,7 @@ mod asset_co2_emissions {
         /// * `id` - The Asset id.
         ///
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails>;
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO>;
 
         /// Get asset details.
         ///
@@ -744,7 +751,7 @@ mod asset_co2_emissions {
                 tree_path.push(asset);
                 match parent_details {
                     None => break,
-                    Some((parent_id, _)) => asset_id = parent_id,
+                    Some(ParentDetailsDTO { parent_id, .. }) => asset_id = parent_id,
                 }
             }
 
@@ -772,13 +779,18 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: ParentDetails,
+            parent: Option<ParentDetailsDTO>,
         ) -> Result<(), AssetCO2EmissionsError> {
             let caller = self.env().caller();
 
+            let parent_details = match parent.clone() {
+                None => None,
+                Some(parent) => Some((parent.parent_id, parent.relation)),
+            };
+
             self.ensure_proper_metadata(&metadata)?;
             self.ensure_emissions_correct(&emissions)?;
-            self.ensure_proper_parent(&parent, &caller)?;
+            self.ensure_proper_parent(&parent_details, &caller)?;
 
             let asset_id: u128 = self.next_id()?;
             self.ensure_not_exist(&asset_id)?;
@@ -788,7 +800,7 @@ mod asset_co2_emissions {
             self.asset_owner.insert(asset_id, &to);
             self.metadata.insert(asset_id, &metadata);
             self.paused.insert(asset_id, &false);
-            self.parent.insert(asset_id, &parent);
+            self.parent.insert(asset_id, &parent_details);
 
             self.env().emit_event(Blasted {
                 id: asset_id,
@@ -873,8 +885,16 @@ mod asset_co2_emissions {
         }
 
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails> {
-            self.parent.get(id)
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO> {
+            let parent = self.parent.get(id).unwrap_or(None);
+
+            match parent {
+                None => None,
+                Some((parent_id, relation)) => Some(ParentDetailsDTO {
+                    parent_id,
+                    relation: relation,
+                }),
+            }
         }
 
         #[ink(message)]
@@ -885,7 +905,7 @@ mod asset_co2_emissions {
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
                     let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
-                    let parent = self.get_parent_details(id).expect("Parent must exist");
+                    let parent = self.get_parent_details(id);
 
                     Some(AssetDetails {
                         asset_id: id,
@@ -990,7 +1010,7 @@ mod asset_co2_emissions {
             expected_id: AssetId,
             expected_metadata: Metadata,
             expected_owner: AccountId,
-            expected_parent: ParentDetails,
+            expected_parent: Option<ParentDetailsDTO>,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("Encountered invalid contract event data buffer");
@@ -1264,7 +1284,7 @@ mod asset_co2_emissions {
             let owner = accounts.bob;
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1330,7 +1350,7 @@ mod asset_co2_emissions {
             let owner = accounts.eve;
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1491,12 +1511,12 @@ mod asset_co2_emissions {
             let asset_id = 1;
 
             assert!(contract
-                .blast(accounts.eve, metadata, emissions, parent)
+                .blast(accounts.eve, metadata, emissions, parent.clone())
                 .is_ok());
 
             let parent_from_state = contract.get_parent_details(asset_id);
-            assert!(parent_from_state.is_some());
-            assert_eq!(parent, parent_from_state.unwrap());
+            assert!(parent_from_state.is_none());
+            assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
@@ -1694,7 +1714,10 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let parent: ParentDetails = Some((1000, 85));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: 1000,
+                relation: 85,
+            });
 
             set_caller(owner);
             assert_eq!(
@@ -1736,7 +1759,10 @@ mod asset_co2_emissions {
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let parent: ParentDetails = Some((asset_id, 0));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 0,
+            });
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::InvalidAssetRelation)
@@ -1774,7 +1800,10 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let parent: ParentDetails = Some((asset_id, 101));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 101,
+            });
 
             set_caller(accounts.eve);
             assert_eq!(
@@ -1814,7 +1843,10 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 90));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 90,
+            });
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::NotPaused)
@@ -1852,10 +1884,13 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 100));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 100,
+            });
             assert!(contract.pause(asset_id).is_ok());
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 2;
@@ -1868,7 +1903,7 @@ mod asset_co2_emissions {
                 expected_asset_id,
                 metadata,
                 owner,
-                parent,
+                parent.clone(),
             );
             assert_emissions_event(
                 &emitted_events[4],
@@ -1881,8 +1916,8 @@ mod asset_co2_emissions {
 
             let parent_from_state = contract.get_parent_details(expected_asset_id);
             assert!(parent_from_state.is_some());
-            assert!(parent_from_state.unwrap().is_some());
-            assert_eq!(parent, parent_from_state.unwrap());
+            assert!(parent_from_state.is_some());
+            assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
@@ -2553,7 +2588,7 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
             let expected_value: Vec<AssetDetails> = Vec::from([AssetDetails {
@@ -2588,7 +2623,7 @@ mod asset_co2_emissions {
 
             set_caller(owner);
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
             let mut expected_tree_path: Vec<AssetDetails> = Vec::from([AssetDetails {
@@ -2600,7 +2635,10 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
+                let parent = Some(ParentDetailsDTO {
+                    parent_id: asset_id,
+                    relation: (100 - (i % 100)),
+                });
                 let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
@@ -2611,7 +2649,7 @@ mod asset_co2_emissions {
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
                 assert!(contract.pause(asset_id).is_ok());
                 assert!(contract
-                    .blast(owner, metadata.clone(), emissions.clone(), parent)
+                    .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                     .is_ok());
 
                 asset_id += 1;
@@ -2705,7 +2743,10 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
+                let parent = Some(ParentDetailsDTO {
+                    parent_id: asset_id,
+                    relation: (100 - (i % 100)),
+                });
                 let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,

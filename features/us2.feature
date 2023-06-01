@@ -81,10 +81,10 @@ Feature: User Story 2
             "date": 1765040054
           }
         ],
-        "parent": [
-          3,
-          15
-        ]
+        "parent": {
+          "parentId": 3,
+          "relation": 15
+        }
       },
       {
         "assetId": 3,
@@ -103,10 +103,10 @@ Feature: User Story 2
             "date": 1755040054
           }
         ],
-        "parent": [
-          2,
-          25
-        ]
+        "parent": {
+          "parentId": 2,
+          "relation": 25
+        }
       },
       {
         "assetId": 2,
@@ -119,10 +119,10 @@ Feature: User Story 2
             "date": 1705040054
           }
         ],
-        "parent": [
-          1,
-          50
-        ]
+        "parent": {
+          "parentId": 1,
+          "relation": 50
+        }
       },
       {
         "assetId": 1,
