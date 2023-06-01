@@ -21,7 +21,7 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
+          "value": 10,
           "primary": true,
           "balanced": true,
           "date": 1682632800
@@ -41,7 +41,7 @@ Feature: User Story 1
             "category": "Upstream",
             "primary": true,
             "balanced": true,
-            "emissions": 10,
+            "value": 10,
             "date": 1682632800
           }
         ],
@@ -64,7 +64,7 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
+          "value": 10,
           "primary": true,
           "balanced": true,
           "date": 1682632800
@@ -80,7 +80,7 @@ Feature: User Story 1
         "category": "Transport",
         "primary": true,
         "balanced": true,
-        "emissions": 10,
+        "value": 10,
         "date": 1702632800
       }
     ]
@@ -93,14 +93,14 @@ Feature: User Story 1
           "category": "Upstream",
           "primary": true,
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
           "primary": true,
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1702632800
         }
       ],
@@ -120,7 +120,7 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
+          "value": 10,
           "primary": true,
           "balanced": true,
           "date": 1682632800
@@ -135,7 +135,7 @@ Feature: User Story 1
       "category": "Transport",
       "primary": true,
       "balanced": true,
-      "emissions": 10,
+      "value": 10,
       "date": 1782632800
     }
     """
@@ -148,14 +148,14 @@ Feature: User Story 1
           "category": "Upstream",
           "primary": true,
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
           "primary": true,
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1782632800
         }
       ],
@@ -175,7 +175,7 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 15,
+          "value": 15,
           "primary": true,
           "balanced": true,
           "date": 1682632800
@@ -194,7 +194,7 @@ Feature: User Story 1
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 10,
+            "value": 10,
             "date": 1705040054
           }
         ]
@@ -206,7 +206,7 @@ Feature: User Story 1
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 5,
+            "value": 5,
             "date": 1755040054
           }
         ]
@@ -225,7 +225,7 @@ Feature: User Story 1
             "category": "Upstream",
             "primary": true,
             "balanced": true,
-            "emissions": 5,
+            "value": 5,
             "date": 1755040054
           }
         ],
@@ -239,7 +239,7 @@ Feature: User Story 1
             "category": "Upstream",
             "primary": true,
             "balanced": true,
-            "emissions": 10,
+            "value": 10,
             "date": 1705040054
           }
         ],
@@ -253,7 +253,7 @@ Feature: User Story 1
             "category": "Upstream",
             "primary": true,
             "balanced": true,
-            "emissions": 15,
+            "value": 15,
             "date": 1682632800
           }
         ],

@@ -211,7 +211,7 @@ class UserStoryWorld {
 					primary: true,
 					balanced: true,
 					date: emission.date,
-					emissions: emission.emissions,
+					value: emission.value,
 				});
 			}
 

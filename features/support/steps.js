@@ -150,7 +150,7 @@ When(
 					primary: true,
 					balanced: true,
 					date: 1755040054,
-					emissions: 10,
+					value: 10,
 				},
 			]
 		);
@@ -234,7 +234,7 @@ Then(
 						emission.category === filterCategory
 					);
 				})
-				.reduce((total, emission) => total + emission.emissions, 0);
+				.reduce((total, emission) => total + emission.value, 0);
 
 			// base case
 			if (asset.parent === null) {

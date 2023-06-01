@@ -125,7 +125,7 @@ mod asset_co2_emissions {
         primary: bool,
         balanced: bool,
         date: u64,
-        emissions: u128,
+        value: u128,
     }
 
     /// This emits when a new Role gets created.
@@ -162,7 +162,7 @@ mod asset_co2_emissions {
         // If CO2 Emissions are balanced (per record).
         balanced: bool,
         // Emissions in kg CO2 (to avoid fractions).
-        emissions: u128,
+        value: u128,
         // Real CO2 emissions date as UNIX timestamp, not block creation time.
         date: u64,
     }
@@ -677,9 +677,9 @@ mod asset_co2_emissions {
         /// ensure emissions value is non-zero
         fn ensure_emissions_item_not_zero(
             &self,
-            item: &CO2Emissions,
+            emissions: &CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError> {
-            match item.emissions {
+            match emissions.value {
                 0 => Err(AssetCO2EmissionsError::ZeroEmissionsItem),
                 _ => Ok(()),
             }
@@ -716,7 +716,7 @@ mod asset_co2_emissions {
                     primary: emission.primary,
                     balanced: emission.balanced,
                     date: emission.date,
-                    emissions: emission.emissions,
+                    value: emission.value,
                 })
             });
             Ok(())
@@ -933,14 +933,14 @@ mod asset_co2_emissions {
             category: EmissionsCategory,
             primary: bool,
             balanced: bool,
-            emissions: u128,
+            value: u128,
             date: u64,
         ) -> CO2Emissions {
             CO2Emissions {
                 category,
                 primary,
                 balanced,
-                emissions,
+                value,
                 date,
             }
         }
@@ -1061,7 +1061,7 @@ mod asset_co2_emissions {
             expected_primary: bool,
             expected_balanced: bool,
             expected_date: u64,
-            expected_emissions: u128,
+            expected_value: u128,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("Encountered invalid contract event data buffer");
@@ -1071,7 +1071,7 @@ mod asset_co2_emissions {
                 primary,
                 balanced,
                 date,
-                emissions,
+                value,
             }) = decoded_event
             {
                 assert_eq!(id, expected_id, "encountered invalid Emission.id");
@@ -1088,10 +1088,7 @@ mod asset_co2_emissions {
                     "encountered invalid Emission.balanced"
                 );
                 assert_eq!(date, expected_date, "encountered invalid Emission.date");
-                assert_eq!(
-                    emissions, expected_emissions,
-                    "encountered invalid Emission.emissions"
-                );
+                assert_eq!(value, expected_value, "encountered invalid Emission.value");
             } else {
                 panic!("encountered unexpected event kind: expected an Emission event")
             }
@@ -1211,7 +1208,7 @@ mod asset_co2_emissions {
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
-            let emissions: u128 = 0;
+            let emissions_value: u128 = 0;
             let emissions_category = EmissionsCategory::Upstream;
             let emissions_primary = true;
             let emissions_balanced = true;
@@ -1220,7 +1217,7 @@ mod asset_co2_emissions {
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                emissions,
+                emissions_value,
                 timestamp,
             );
 
@@ -1285,7 +1282,7 @@ mod asset_co2_emissions {
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
-            let e: u128 = 1;
+            let emissions_value: u128 = 1;
             let emissions_category = EmissionsCategory::Upstream;
             let emissions_primary = true;
             let emissions_balanced = true;
@@ -1294,7 +1291,7 @@ mod asset_co2_emissions {
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -1324,7 +1321,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e,
+                emissions_value,
             );
         }
 
@@ -1341,30 +1338,30 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e1 = 1u128;
+            let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e1,
+                emissions_value_1,
                 timestamp,
             );
 
-            let e2 = 2u128;
+            let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e2,
+                emissions_value_2,
                 timestamp,
             );
 
-            let e3 = 3u128;
+            let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e3,
+                emissions_value_3,
                 timestamp,
             );
 
@@ -1395,7 +1392,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e1,
+                emissions_value_1,
             );
             assert_emissions_event(
                 &emitted_events[2],
@@ -1404,7 +1401,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e2,
+                emissions_value_2,
             );
             assert_emissions_event(
                 &emitted_events[3],
@@ -1413,7 +1410,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e3,
+                emissions_value_3,
             );
         }
 
@@ -1436,30 +1433,30 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e1 = 1u128;
+            let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e1,
+                emissions_value_1,
                 timestamp,
             );
 
-            let e2 = 2u128;
+            let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e2,
+                emissions_value_2,
                 timestamp,
             );
 
-            let e3 = 3u128;
+            let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e3,
+                emissions_value_3,
                 timestamp,
             );
 
@@ -1536,12 +1533,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1571,12 +1568,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1605,12 +1602,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1639,12 +1636,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1675,12 +1672,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1713,12 +1710,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1748,12 +1745,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1787,12 +1784,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1829,12 +1826,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1871,12 +1868,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1911,12 +1908,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1956,7 +1953,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e,
+                emissions_value,
             );
 
             let parent_from_state = contract.get_parent_details(expected_asset_id);
@@ -1976,12 +1973,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2006,12 +2003,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2024,12 +2021,12 @@ mod asset_co2_emissions {
             assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             set_caller(accounts.bob);
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2051,12 +2048,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2073,12 +2070,12 @@ mod asset_co2_emissions {
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2100,12 +2097,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2120,12 +2117,12 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let e_1 = 0u128;
+            let emissions_value_1 = 0u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2147,12 +2144,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2167,12 +2164,12 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert!(contract
@@ -2189,7 +2186,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e_1,
+                emissions_value_1,
             );
 
             let expected_emissions: Vec<CO2Emissions> = Vec::from([item, new_emissions_item]);
@@ -2211,12 +2208,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2243,12 +2240,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2261,12 +2258,12 @@ mod asset_co2_emissions {
             assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             set_caller(accounts.bob);
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2288,12 +2285,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2310,12 +2307,12 @@ mod asset_co2_emissions {
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2338,12 +2335,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2379,12 +2376,12 @@ mod asset_co2_emissions {
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
             for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
-                let e = 1u128;
+                let emissions_value = 1u128;
                 let item = new_emissions(
                     emissions_category,
                     emissions_primary,
                     emissions_balanced,
-                    e,
+                    emissions_value,
                     timestamp,
                 );
                 emissions.push(item);
@@ -2416,12 +2413,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2463,12 +2460,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2483,12 +2480,12 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let e_1 = 0u128;
+            let emissions_value_1 = 0u128;
             let new_emissions_item_0 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2496,14 +2493,14 @@ mod asset_co2_emissions {
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             let new_emissions_item_2 = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2540,12 +2537,12 @@ mod asset_co2_emissions {
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
             for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
-                let e = 1u128;
+                let emissions_value = 1u128;
                 let item = new_emissions(
                     emissions_category,
                     emissions_primary,
                     emissions_balanced,
-                    e,
+                    emissions_value,
                     timestamp,
                 );
                 emissions.push(item);
@@ -2577,12 +2574,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2597,13 +2594,13 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_owner = accounts.bob;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2624,7 +2621,7 @@ mod asset_co2_emissions {
                 emissions_primary,
                 emissions_balanced,
                 timestamp,
-                e_1,
+                emissions_value_1,
             );
 
             let expected_emissions: Vec<CO2Emissions> = Vec::from([item, new_emissions_item]);
@@ -2658,12 +2655,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2701,8 +2698,14 @@ mod asset_co2_emissions {
             let emissions_category = EmissionsCategory::Upstream;
             let emissions_primary = true;
 
-            let e = 1u128;
-            let item = new_emissions(emissions_category, emissions_primary, true, e, timestamp);
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_primary,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2724,12 +2727,12 @@ mod asset_co2_emissions {
             // create long token tree path
             for i in 1..1_000 {
                 let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
-                let e = i as u128;
+                let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
                     false,
                     false,
-                    e,
+                    emissions_value,
                     timestamp + i as u64,
                 );
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -2779,12 +2782,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2817,8 +2820,14 @@ mod asset_co2_emissions {
             let emissions_category = EmissionsCategory::Upstream;
             let emissions_primary = true;
 
-            let e = 1u128;
-            let item = new_emissions(emissions_category, emissions_primary, true, e, timestamp);
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_primary,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2833,12 +2842,12 @@ mod asset_co2_emissions {
             // create long token tree path
             for i in 1..1_000 {
                 let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
-                let e = i as u128;
+                let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
                     false,
                     false,
-                    e,
+                    emissions_value,
                     timestamp + i as u64,
                 );
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -2869,12 +2878,12 @@ mod asset_co2_emissions {
             let emissions_primary = true;
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2893,12 +2902,12 @@ mod asset_co2_emissions {
             assert_eq!(Vec::from([asset_id]), contract.list_assets(owner));
             assert_eq!(Vec::<AssetId>::new(), contract.list_assets(new_owner));
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
                 emissions_primary,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
