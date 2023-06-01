@@ -147,7 +147,6 @@ When(
 			[
 				{
 					category: "Upstream",
-					primary: true,
 					balanced: true,
 					date: 1755040054,
 					value: 10,

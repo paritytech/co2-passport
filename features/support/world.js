@@ -208,7 +208,6 @@ class UserStoryWorld {
 			for (const emission of asset.emissions) {
 				emissions.push({
 					category: emission.emission_category,
-					primary: true,
 					balanced: true,
 					date: emission.date,
 					value: emission.value,

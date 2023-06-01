@@ -44,7 +44,6 @@ Feature: User Story 2
           },
             {
               "category": "Process",
-              "primary": true,
               "balanced": true,
               "value": 5,
               "date": 1755040054
@@ -77,7 +76,6 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Process",
-            "primary": true,
             "balanced": true,
             "value": 5,
             "date": 1765040054
@@ -94,14 +92,12 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 5,
             "date": 1755040054
           },
           {
             "category": "Process",
-            "primary": true,
             "balanced": true,
             "value": 5,
             "date": 1755040054
@@ -118,7 +114,6 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 10,
             "date": 1705040054
@@ -135,7 +130,6 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 15,
             "date": 1682632800

@@ -22,7 +22,6 @@ Feature: User Story 1
         {
           "category": "Upstream",
           "value": 10,
-          "primary": true,
           "balanced": true,
           "date": 1682632800
         }
@@ -39,7 +38,6 @@ Feature: User Story 1
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 10,
             "date": 1682632800
@@ -49,7 +47,7 @@ Feature: User Story 1
       },
       "events": [
         {"event":{"name":"Blasted","args":["1","{\"weight\":100}","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
-        {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Upstream",true,"1,682,632,800","10"]}}
       ]
     }
     """
@@ -65,7 +63,6 @@ Feature: User Story 1
         {
           "category": "Upstream",
           "value": 10,
-          "primary": true,
           "balanced": true,
           "date": 1682632800
         }
@@ -78,7 +75,6 @@ Feature: User Story 1
     [
       {
         "category": "Transport",
-        "primary": true,
         "balanced": true,
         "value": 10,
         "date": 1702632800
@@ -91,14 +87,12 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "primary": true,
           "balanced": true,
           "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
-          "primary": true,
           "balanced": true,
           "value": 10,
           "date": 1702632800
@@ -106,7 +100,7 @@ Feature: User Story 1
       ],
       "events": [
         {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
-        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,702,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Transport",true,"1,702,632,800","10"]}}
       ]
     }
     """
@@ -121,7 +115,6 @@ Feature: User Story 1
         {
           "category": "Upstream",
           "value": 10,
-          "primary": true,
           "balanced": true,
           "date": 1682632800
         }
@@ -133,7 +126,6 @@ Feature: User Story 1
     """
     {
       "category": "Transport",
-      "primary": true,
       "balanced": true,
       "value": 10,
       "date": 1782632800
@@ -146,21 +138,19 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "primary": true,
           "balanced": true,
           "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
-          "primary": true,
           "balanced": true,
           "value": 10,
           "date": 1782632800
         }
       ],
       "events": [
-        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,782,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Transport",true,"1,782,632,800","10"]}}
       ]
     }
     """
@@ -176,7 +166,6 @@ Feature: User Story 1
         {
           "category": "Upstream",
           "value": 15,
-          "primary": true,
           "balanced": true,
           "date": 1682632800
         }
@@ -223,7 +212,6 @@ Feature: User Story 1
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 5,
             "date": 1755040054
@@ -237,7 +225,6 @@ Feature: User Story 1
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 10,
             "date": 1705040054
@@ -251,7 +238,6 @@ Feature: User Story 1
         "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
             "balanced": true,
             "value": 15,
             "date": 1682632800
