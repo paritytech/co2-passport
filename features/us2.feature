@@ -15,6 +15,7 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
+            "dataSource": "Some Algorithm",
             "value": 15,
             "date": 1682632800
           }
@@ -27,6 +28,7 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
+            "dataSource": "Some Algorithm",
             "value": 10,
             "date": 1705040054
           }
@@ -39,11 +41,13 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
+            "dataSource": "Some Algorithm",
             "value": 5,
             "date": 1755040054
           },
             {
               "category": "Process",
+              "dataSource": "Some Algorithm",
               "balanced": true,
               "value": 5,
               "date": 1755040054
@@ -57,6 +61,7 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Process",
+            "dataSource": "Some Algorithm",
             "value": 5,
             "date": 1765040054
           }
@@ -76,6 +81,7 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Process",
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
             "value": 5,
             "date": 1765040054
@@ -92,12 +98,14 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
             "value": 5,
             "date": 1755040054
           },
           {
             "category": "Process",
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
             "value": 5,
             "date": 1755040054
@@ -114,6 +122,7 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
             "value": 10,
             "date": 1705040054
@@ -130,6 +139,7 @@ Feature: User Story 2
         "emissions": [
           {
             "category": "Upstream",
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
             "value": 15,
             "date": 1682632800

@@ -35,11 +35,14 @@ mod asset_co2_emissions {
         parent: Option<ParentDetailsDTO>,
     }
     pub type Description = Vec<u8>;
+    pub type DataSource = Vec<u8>;
 
     // Max size of the Metadata vector.
     pub const MAX_METADATA_LENGTH: u16 = 1024; // 1KB
                                                // Max emissions per asset
     pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
+    // Max size of DataSource
+    pub const MAX_DATA_SOURCE_LENGTH: u8 = 128;
 
     #[derive(Copy, Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -77,6 +80,8 @@ mod asset_co2_emissions {
         ZeroEmissionsItem,
         // When the Metadata vector contains too many characters
         MetadataOverflow,
+        // When the data source vector contains too many characters
+        DataSourceOverflow,
         // When a parent <> child Asset relation is equal to 0
         InvalidAssetRelation,
         // When an Asset with ID already exists.
@@ -129,6 +134,7 @@ mod asset_co2_emissions {
         #[ink(topic)]
         id: AssetId,
         category: EmissionsCategory,
+        data_source: DataSource,
         balanced: bool,
         date: u64,
         value: u128,
@@ -163,6 +169,8 @@ mod asset_co2_emissions {
     pub struct CO2Emissions {
         // Type of CO2 Emissions (bucket).
         category: EmissionsCategory,
+        // Emissions source of data
+        data_source: DataSource,
         // If CO2 Emissions are balanced (per record).
         balanced: bool,
         // Emissions in kg CO2 (to avoid fractions).
@@ -638,13 +646,12 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             self.ensure_emissions_not_empty(emissions)?;
             self.ensure_emissions_not_unbounded(emissions)?;
-            match emissions
-                .iter()
-                .all(|item| self.ensure_emissions_item_correct(item).is_ok())
-            {
-                false => Err(AssetCO2EmissionsError::ZeroEmissionsItem),
-                true => Ok(()),
-            }
+
+            // ensure all emissions items are correct
+            emissions.iter().try_for_each(|item| {
+                self.ensure_emissions_item_correct(item)?;
+                Ok(())
+            })
         }
 
         /// Ensure emissions are not empty
@@ -669,11 +676,22 @@ mod asset_co2_emissions {
             Ok(())
         }
 
+        fn ensure_emissions_data_src_not_unbounded(
+            &self,
+            data_source: &DataSource,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            if data_source.len() > MAX_DATA_SOURCE_LENGTH as usize {
+                return Err(AssetCO2EmissionsError::DataSourceOverflow);
+            }
+            Ok(())
+        }
+
         /// Ensure emissions item is correct
         fn ensure_emissions_item_correct(
             &self,
             item: &CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError> {
+            self.ensure_emissions_data_src_not_unbounded(&item.data_source)?;
             self.ensure_emissions_item_not_zero(item)?;
             Ok(())
         }
@@ -717,6 +735,7 @@ mod asset_co2_emissions {
                 self.env().emit_event(Emission {
                     id: *id,
                     category: emission.category,
+                    data_source: emission.data_source.clone(),
                     balanced: emission.balanced,
                     date: emission.date,
                     value: emission.value,
@@ -947,12 +966,14 @@ mod asset_co2_emissions {
 
         fn new_emissions(
             category: EmissionsCategory,
+            data_source: DataSource,
             balanced: bool,
             value: u128,
             date: u64,
         ) -> CO2Emissions {
             CO2Emissions {
                 category,
+                data_source,
                 balanced,
                 value,
                 date,
@@ -1072,6 +1093,7 @@ mod asset_co2_emissions {
             event: &test::EmittedEvent,
             expected_id: AssetId,
             expected_category: EmissionsCategory,
+            expected_data_source: DataSource,
             expected_balanced: bool,
             expected_date: u64,
             expected_value: u128,
@@ -1081,6 +1103,7 @@ mod asset_co2_emissions {
             if let Event::Emission(Emission {
                 id,
                 category,
+                data_source,
                 balanced,
                 date,
                 value,
@@ -1090,6 +1113,10 @@ mod asset_co2_emissions {
                 assert_eq!(
                     category, expected_category,
                     "encountered invalid Emission.category"
+                );
+                assert_eq!(
+                    data_source, expected_data_source,
+                    "encountered invalid Emission.data_source"
                 );
                 assert_eq!(
                     balanced, expected_balanced,
@@ -1218,10 +1245,12 @@ mod asset_co2_emissions {
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_value: u128 = 0;
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1245,13 +1274,32 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let item0 = new_emissions(emissions_category, emissions_balanced, 0u128, timestamp);
+            let item0 = new_emissions(
+                emissions_category,
+                emissions_data_source.clone(),
+                emissions_balanced,
+                0u128,
+                timestamp,
+            );
 
-            let item1 = new_emissions(emissions_category, emissions_balanced, 1u128, timestamp);
+            let item1 = new_emissions(
+                emissions_category,
+                emissions_data_source.clone(),
+                emissions_balanced,
+                1u128,
+                timestamp,
+            );
 
-            let item2 = new_emissions(emissions_category, emissions_balanced, 2u128, timestamp);
+            let item2 = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                emissions_balanced,
+                2u128,
+                timestamp,
+            );
             let emissions: Vec<CO2Emissions> = Vec::from([item1, item0, item2]);
 
             assert_eq!(
@@ -1271,10 +1319,12 @@ mod asset_co2_emissions {
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_value: u128 = 1;
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1303,6 +1353,7 @@ mod asset_co2_emissions {
                 &emitted_events[1],
                 expected_asset_id,
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
                 emissions_value,
@@ -1319,11 +1370,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -1332,6 +1385,7 @@ mod asset_co2_emissions {
             let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_2,
                 timestamp,
@@ -1340,6 +1394,7 @@ mod asset_co2_emissions {
             let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_3,
                 timestamp,
@@ -1369,6 +1424,7 @@ mod asset_co2_emissions {
                 &emitted_events[1],
                 expected_asset_id,
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 timestamp,
                 emissions_value_1,
@@ -1377,6 +1433,7 @@ mod asset_co2_emissions {
                 &emitted_events[2],
                 expected_asset_id,
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 timestamp,
                 emissions_value_2,
@@ -1385,6 +1442,7 @@ mod asset_co2_emissions {
                 &emitted_events[3],
                 expected_asset_id,
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
                 emissions_value_3,
@@ -1407,11 +1465,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -1420,6 +1480,7 @@ mod asset_co2_emissions {
             let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_2,
                 timestamp,
@@ -1428,6 +1489,7 @@ mod asset_co2_emissions {
             let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_3,
                 timestamp,
@@ -1462,10 +1524,17 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let e = 1u128;
-            let item = new_emissions(emissions_category, emissions_balanced, e, timestamp);
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                emissions_balanced,
+                e,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -1496,11 +1565,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1529,11 +1600,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1561,11 +1634,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1593,11 +1668,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1627,11 +1704,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1663,11 +1742,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1696,11 +1777,13 @@ mod asset_co2_emissions {
             let parent = None;
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1736,11 +1819,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1779,11 +1864,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1822,11 +1909,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1863,11 +1952,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1909,6 +2000,7 @@ mod asset_co2_emissions {
                 &emitted_events[4],
                 expected_asset_id,
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
                 emissions_value,
@@ -1928,11 +2020,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1956,11 +2050,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -1978,6 +2074,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -1998,11 +2095,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2024,6 +2123,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2044,11 +2144,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2068,6 +2170,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 0u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2088,11 +2191,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2112,6 +2217,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2127,6 +2233,7 @@ mod asset_co2_emissions {
                 &emitted_events[2],
                 asset_id,
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
                 emissions_value_1,
@@ -2148,11 +2255,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2178,11 +2287,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2200,6 +2311,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2220,11 +2332,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2246,6 +2360,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2267,11 +2382,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2304,6 +2421,7 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
@@ -2311,6 +2429,7 @@ mod asset_co2_emissions {
                 let emissions_value = 1u128;
                 let item = new_emissions(
                     emissions_category,
+                    emissions_data_source.clone(),
                     emissions_balanced,
                     emissions_value,
                     timestamp,
@@ -2341,11 +2460,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2377,6 +2498,52 @@ mod asset_co2_emissions {
         }
 
         #[ink::test]
+        fn should_reject_too_many_chars_in_data_source() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let mut emissions_data_source = Vec::new();
+            for _ in 0..MAX_METADATA_LENGTH + 1 {
+                emissions_data_source.push(0u8);
+            }
+
+            let emissions_balanced = true;
+
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                emissions_balanced,
+                emissions_value,
+                timestamp,
+            );
+
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            let expected_asset_id = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert_eq!(
+                contract.blast(owner, metadata.clone(), emissions.clone(), parent),
+                Err(AssetCO2EmissionsError::DataSourceOverflow)
+            );
+
+            assert!(contract.get_asset(expected_asset_id).is_none());
+        }
+
+        #[ink::test]
         fn should_reject_zero_emissions_item_in_transfer() {
             let accounts = get_accounts();
 
@@ -2386,11 +2553,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2410,6 +2579,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 0u128;
             let new_emissions_item_0 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2417,12 +2587,14 @@ mod asset_co2_emissions {
 
             let new_emissions_item_1 = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
             );
             let new_emissions_item_2 = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2456,6 +2628,7 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
@@ -2463,6 +2636,7 @@ mod asset_co2_emissions {
                 let emissions_value = 1u128;
                 let item = new_emissions(
                     emissions_category,
+                    emissions_data_source.clone(),
                     emissions_balanced,
                     emissions_value,
                     timestamp,
@@ -2493,11 +2667,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2518,6 +2694,7 @@ mod asset_co2_emissions {
             let new_owner = accounts.bob;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
@@ -2537,6 +2714,7 @@ mod asset_co2_emissions {
                 &emitted_events[3],
                 asset_id,
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
                 emissions_value_1,
@@ -2570,11 +2748,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2612,9 +2792,16 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
 
             let emissions_value = 1u128;
-            let item = new_emissions(emissions_category, true, emissions_value, timestamp);
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2642,6 +2829,7 @@ mod asset_co2_emissions {
                 let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
+                    Vec::from([0u8, 1u8, 2u8, 3u8]),
                     false,
                     emissions_value,
                     timestamp + i as u64,
@@ -2690,11 +2878,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2727,9 +2917,16 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
 
             let emissions_value = 1u128;
-            let item = new_emissions(emissions_category, true, emissions_value, timestamp);
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2750,6 +2947,7 @@ mod asset_co2_emissions {
                 let emissions_value = i as u128;
                 let item = new_emissions(
                     EmissionsCategory::Process,
+                    Vec::from([0u8, 1u8, 2u8, 3u8]),
                     false,
                     emissions_value,
                     timestamp + i as u64,
@@ -2779,11 +2977,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 emissions_value,
                 timestamp,
@@ -2807,6 +3007,7 @@ mod asset_co2_emissions {
             let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
+                emissions_data_source,
                 emissions_balanced,
                 emissions_value_1,
                 timestamp,
