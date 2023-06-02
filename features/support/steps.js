@@ -73,7 +73,7 @@ Then(
 		let ownerOf = await this.getOwnerOf(sender, assetId);
 		let assetDetails = await this.getAsset(sender, assetId);
 		expect(ownerOf).to.equal(this.accounts[sender].address);
-		expect(assetDetails[2]).to.deep.equal(emissions);
+		expect(assetDetails.emissions).to.deep.equal(emissions);
 	}
 );
 
@@ -111,7 +111,7 @@ Then("The asset {int} will be:", async function (assetId, jsonString) {
 	let assetDetails = await this.getAsset("Eve", assetId);
 
 	expect(this.events).to.deep.equal(events);
-	expect(assetDetails[2]).to.deep.equal(emissions);
+	expect(assetDetails.emissions).to.deep.equal(emissions);
 });
 
 Given(
@@ -147,10 +147,9 @@ When(
 			[
 				{
 					category: "Upstream",
-					primary: true,
 					balanced: true,
 					date: 1755040054,
-					emissions: 10,
+					value: 10,
 				},
 			]
 		);
@@ -220,8 +219,8 @@ Then(
 		let totalEmissions = 0;
 		let prevWeight = 0;
 		for (let asset of this.readOutput.reverse()) {
-			let metadata = JSON.parse(hexToString(asset[1]));
-			let emissions = asset[2];
+			let metadata = JSON.parse(hexToString(asset.metadata));
+			let emissions = asset.emissions;
 
 			// Calculate total emissions for the current asset.
 			// Removes emissions outside the date range of filterDateFrom and filterDateTo
@@ -234,10 +233,10 @@ Then(
 						emission.category === filterCategory
 					);
 				})
-				.reduce((total, emission) => total + emission.emissions, 0);
+				.reduce((total, emission) => total + emission.value, 0);
 
 			// base case
-			if (asset[3] === null) {
+			if (asset.parent === null) {
 				totalEmissions = totalAssetEmissions;
 				prevWeight = metadata.weight;
 				continue;

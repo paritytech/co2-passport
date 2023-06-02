@@ -21,8 +21,8 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
-          "primary": true,
+          "dataSource": "Some Algorithm",
+          "value": 10,
           "balanced": true,
           "date": 1682632800
         }
@@ -33,23 +33,23 @@ Feature: User Story 1
     Then The asset 1 and emitted events will be the following:
     """
     {
-      "asset": [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+      "asset": {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 10,
+            "value": 10,
             "date": 1682632800
           }
         ],
-        null
-      ],
+        "parent": null
+      },
       "events": [
         {"event":{"name":"Blasted","args":["1","{\"weight\":100}","5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4",null]}},
-        {"event":{"name":"Emission","args":["1","Upstream",true,true,"1,682,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Upstream","Some Algorithm", true,"1,682,632,800","10"]}}
       ]
     }
     """
@@ -64,8 +64,8 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
-          "primary": true,
+          "dataSource": "Some Algorithm",
+          "value": 10,
           "balanced": true,
           "date": 1682632800
         }
@@ -78,9 +78,9 @@ Feature: User Story 1
     [
       {
         "category": "Transport",
-        "primary": true,
+        "dataSource": "Some Algorithm",
         "balanced": true,
-        "emissions": 10,
+        "value": 10,
         "date": 1702632800
       }
     ]
@@ -91,22 +91,22 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "primary": true,
+          "dataSource": "0x536f6d6520416c676f726974686d",
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
-          "primary": true,
+          "dataSource": "0x536f6d6520416c676f726974686d",
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1702632800
         }
       ],
       "events": [
         {"event":{"name":"Transfer","args":["5CXgNxM5hQSk9hiKxmYsLPhGun363r4J3q98A6RtHfMZauR4","5FTrX9Po5UMmwze8Um87zjmAazxYTrWUrt61ZkTKBQ5FHbMy","1"]}},
-        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,702,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Transport","Some Algorithm", true,"1,702,632,800","10"]}}
       ]
     }
     """
@@ -120,8 +120,8 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 10,
-          "primary": true,
+          "dataSource": "Some Algorithm",
+          "value": 10,
           "balanced": true,
           "date": 1682632800
         }
@@ -133,9 +133,9 @@ Feature: User Story 1
     """
     {
       "category": "Transport",
-      "primary": true,
+      "dataSource": "Some Algorithm",
       "balanced": true,
-      "emissions": 10,
+      "value": 10,
       "date": 1782632800
     }
     """
@@ -146,21 +146,21 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "primary": true,
+          "dataSource": "0x536f6d6520416c676f726974686d",
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1682632800
         },
         {
           "category": "Transport",
-          "primary": true,
+          "dataSource": "0x536f6d6520416c676f726974686d",
           "balanced": true,
-          "emissions": 10,
+          "value": 10,
           "date": 1782632800
         }
       ],
       "events": [
-        {"event":{"name":"Emission","args":["1","Transport",true,true,"1,782,632,800","10"]}}
+        {"event":{"name":"Emission","args":["1","Transport", "Some Algorithm", true,"1,782,632,800","10"]}}
       ]
     }
     """
@@ -175,8 +175,8 @@ Feature: User Story 1
       "emissions": [
         {
           "category": "Upstream",
-          "emissions": 15,
-          "primary": true,
+          "dataSource": "Some Algorithm",
+          "value": 15,
           "balanced": true,
           "date": 1682632800
         }
@@ -194,7 +194,8 @@ Feature: User Story 1
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 10,
+            "dataSource": "Some Algorithm",
+            "value": 10,
             "date": 1705040054
           }
         ]
@@ -206,7 +207,8 @@ Feature: User Story 1
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 5,
+            "dataSource": "Some Algorithm",
+            "value": 5,
             "date": 1755040054
           }
         ]
@@ -217,47 +219,53 @@ Feature: User Story 1
     Then The asset 3 when queried will equal the following asset tree:
     """
     [
-      [
-        3,
-        "0x7b22776569676874223a32357d",
-        [
+      {
+        "assetId": 3,
+        "metadata": "0x7b22776569676874223a32357d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 5,
+            "value": 5,
             "date": 1755040054
           }
         ],
-        [2, 25]
-      ],
-      [
-        2,
-        "0x7b22776569676874223a35307d",
-        [
+        "parent": {
+          "parentId": 2,
+          "relation": 25
+        }
+      },
+      {
+        "assetId": 2,
+        "metadata": "0x7b22776569676874223a35307d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 10,
+            "value": 10,
             "date": 1705040054
           }
         ],
-        [1, 50]
-      ],
-      [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+        "parent": {
+          "parentId": 1,
+          "relation": 50
+        }
+      },
+      {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 15,
+            "value": 15,
             "date": 1682632800
           }
         ],
-        null
-      ]
+        "parent": null
+      }
     ]
     """

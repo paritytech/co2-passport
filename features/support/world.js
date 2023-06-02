@@ -208,10 +208,10 @@ class UserStoryWorld {
 			for (const emission of asset.emissions) {
 				emissions.push({
 					category: emission.emission_category,
-					primary: true,
+					dataSource: emission.dataSource,
 					balanced: true,
 					date: emission.date,
-					emissions: emission.emissions,
+					value: emission.value,
 				});
 			}
 

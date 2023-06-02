@@ -7,25 +7,54 @@ mod asset_co2_emissions {
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
 
+    // Max size of the Metadata vector.
+    pub const MAX_METADATA_LENGTH: u16 = 1024; // 1KB
+
+    // Max emissions per asset
+    pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
+
+    // Max size of DataSource
+    pub const MAX_DATA_SOURCE_LENGTH: u8 = 128;
+
     /// Asset ID type.
     // TODO proper ID type
     pub type AssetId = u128;
 
-    // Metadata represented by a vector of bytes / characters.
+    // Metadata represented by a vector of bytes/characters.
     pub type Metadata = Vec<u8>;
-    pub type RoleId = AccountId;
+
+    // CO2 Emissions Data Source represented by vector of bytes/characters.
+    pub type DataSource = Vec<u8>;
+
     // The relation type between a child and its parent.
     pub type ParentRelation = u128;
+
     // Optional argument for referencing a parent asset that is split into child assets.
+    // The parent details transfer object.
     pub type ParentDetails = Option<(AssetId, ParentRelation)>;
-    // The type returned when querying for an Asset.
-    pub type AssetDetails = (AssetId, Metadata, Vec<CO2Emissions>, ParentDetails);
+
+    // Role identifier
+    pub type RoleId = AccountId;
+
+    // Role description represented by a vector of bytes/characters.
     pub type Description = Vec<u8>;
 
-    // Max size of the Metadata vector.
-    pub const MAX_METADATA_LENGTH: u16 = 1024; // 1KB
-                                               // Max emissions per asset
-    pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
+    #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct ParentDetailsDTO {
+        parent_id: AssetId,
+        relation: ParentRelation,
+    }
+
+    // The type returned when querying for an Asset.
+    #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct AssetDetails {
+        asset_id: AssetId,
+        metadata: Metadata,
+        emissions: Vec<CO2Emissions>,
+        parent: Option<ParentDetailsDTO>,
+    }
 
     #[derive(Copy, Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -35,7 +64,22 @@ mod asset_co2_emissions {
         Upstream,
     }
 
-    /// The AssetCO2Emissions error types.
+    #[derive(Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct CO2Emissions {
+        // Type of CO2 Emissions (bucket).
+        category: EmissionsCategory,
+        // Emissions source of data
+        data_source: DataSource,
+        // If CO2 Emissions are balanced (per record).
+        balanced: bool,
+        // Emissions in kg CO2 (to avoid fractions).
+        value: u128,
+        // Real CO2 emissions date as UNIX timestamp, not block creation time.
+        date: u64,
+    }
+
+    /// The AssetCO2Emissions Error types.
     #[derive(Debug, PartialEq, Eq, Copy, Clone, scale::Encode, scale::Decode)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum AssetCO2EmissionsError {
@@ -63,6 +107,8 @@ mod asset_co2_emissions {
         ZeroEmissionsItem,
         // When the Metadata vector contains too many characters
         MetadataOverflow,
+        // When the data source vector contains too many characters
+        DataSourceOverflow,
         // When a parent <> child Asset relation is equal to 0
         InvalidAssetRelation,
         // When an Asset with ID already exists.
@@ -90,7 +136,7 @@ mod asset_co2_emissions {
         id: AssetId,
         metadata: Metadata,
         owner: AccountId,
-        parent: ParentDetails,
+        parent: Option<ParentDetailsDTO>,
     }
 
     /// This emits when ownership of any Asset changes.
@@ -115,10 +161,10 @@ mod asset_co2_emissions {
         #[ink(topic)]
         id: AssetId,
         category: EmissionsCategory,
-        primary: bool,
+        data_source: DataSource,
         balanced: bool,
         date: u64,
-        emissions: u128,
+        value: u128,
     }
 
     /// This emits when a new Role gets created.
@@ -143,21 +189,6 @@ mod asset_co2_emissions {
     pub struct RoleMembershipChanged {
         #[ink(topic)]
         id: RoleId,
-    }
-
-    #[derive(Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub struct CO2Emissions {
-        // Type of CO2 Emissions (bucket).
-        category: EmissionsCategory,
-        // Supplier primary/average; true if supplier-primary.
-        primary: bool,
-        // If CO2 Emissions are balanced (per record).
-        balanced: bool,
-        // Emissions in kg CO2 (to avoid fractions).
-        emissions: u128,
-        // Real CO2 emissions date as UNIX timestamp, not block creation time.
-        date: u64,
     }
 
     #[ink::trait_definition]
@@ -318,7 +349,7 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: ParentDetails,
+            parent: Option<ParentDetailsDTO>,
         ) -> Result<(), AssetCO2EmissionsError>;
 
         /// Transfers the ownership of an Asset to another account
@@ -426,7 +457,7 @@ mod asset_co2_emissions {
         /// * `id` - The Asset id.
         ///
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails>;
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO>;
 
         /// Get asset details.
         ///
@@ -467,6 +498,12 @@ mod asset_co2_emissions {
         paused: Mapping<AssetId, bool>,
         // child asset's parent
         parent: Mapping<AssetId, ParentDetails>,
+    }
+
+    impl Default for InfinityAsset {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl InfinityAsset {
@@ -627,13 +664,12 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             self.ensure_emissions_not_empty(emissions)?;
             self.ensure_emissions_not_unbounded(emissions)?;
-            match emissions
-                .iter()
-                .all(|item| self.ensure_emissions_item_correct(item).is_ok())
-            {
-                false => Err(AssetCO2EmissionsError::ZeroEmissionsItem),
-                true => Ok(()),
-            }
+
+            // ensure all emissions items are correct
+            emissions.iter().try_for_each(|item| {
+                self.ensure_emissions_item_correct(item)?;
+                Ok(())
+            })
         }
 
         /// Ensure emissions are not empty
@@ -658,11 +694,22 @@ mod asset_co2_emissions {
             Ok(())
         }
 
+        fn ensure_emissions_data_src_not_unbounded(
+            &self,
+            data_source: &DataSource,
+        ) -> Result<(), AssetCO2EmissionsError> {
+            if data_source.len() > MAX_DATA_SOURCE_LENGTH as usize {
+                return Err(AssetCO2EmissionsError::DataSourceOverflow);
+            }
+            Ok(())
+        }
+
         /// Ensure emissions item is correct
         fn ensure_emissions_item_correct(
             &self,
             item: &CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError> {
+            self.ensure_emissions_data_src_not_unbounded(&item.data_source)?;
             self.ensure_emissions_item_not_zero(item)?;
             Ok(())
         }
@@ -670,9 +717,9 @@ mod asset_co2_emissions {
         /// ensure emissions value is non-zero
         fn ensure_emissions_item_not_zero(
             &self,
-            item: &CO2Emissions,
+            emissions: &CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError> {
-            match item.emissions {
+            match emissions.value {
                 0 => Err(AssetCO2EmissionsError::ZeroEmissionsItem),
                 _ => Ok(()),
             }
@@ -706,10 +753,10 @@ mod asset_co2_emissions {
                 self.env().emit_event(Emission {
                     id: *id,
                     category: emission.category,
-                    primary: emission.primary,
+                    data_source: emission.data_source.clone(),
                     balanced: emission.balanced,
                     date: emission.date,
-                    emissions: emission.emissions,
+                    value: emission.value,
                 })
             });
             Ok(())
@@ -737,11 +784,11 @@ mod asset_co2_emissions {
                 let asset: AssetDetails = self
                     .get_asset(asset_id)
                     .expect("Asset existence already checked");
-                let parent_details = asset.3;
+                let parent_details = asset.parent.clone();
                 tree_path.push(asset);
                 match parent_details {
                     None => break,
-                    Some((parent_id, _)) => asset_id = parent_id,
+                    Some(ParentDetailsDTO { parent_id, .. }) => asset_id = parent_id,
                 }
             }
 
@@ -769,13 +816,17 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: ParentDetails,
+            parent: Option<ParentDetailsDTO>,
         ) -> Result<(), AssetCO2EmissionsError> {
             let caller = self.env().caller();
 
+            let parent_details: ParentDetails = parent
+                .clone()
+                .map(|parent| (parent.parent_id, parent.relation));
+
             self.ensure_proper_metadata(&metadata)?;
             self.ensure_emissions_correct(&emissions)?;
-            self.ensure_proper_parent(&parent, &caller)?;
+            self.ensure_proper_parent(&parent_details, &caller)?;
 
             let asset_id: u128 = self.next_id()?;
             self.ensure_not_exist(&asset_id)?;
@@ -785,7 +836,7 @@ mod asset_co2_emissions {
             self.asset_owner.insert(asset_id, &to);
             self.metadata.insert(asset_id, &metadata);
             self.paused.insert(asset_id, &false);
-            self.parent.insert(asset_id, &parent);
+            self.parent.insert(asset_id, &parent_details);
 
             self.env().emit_event(Blasted {
                 id: asset_id,
@@ -870,8 +921,13 @@ mod asset_co2_emissions {
         }
 
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails> {
-            self.parent.get(id)
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO> {
+            let parent = self.parent.get(id).unwrap_or(None);
+
+            parent.map(|(parent_id, relation)| ParentDetailsDTO {
+                parent_id,
+                relation,
+            })
         }
 
         #[ink(message)]
@@ -882,9 +938,14 @@ mod asset_co2_emissions {
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
                     let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
-                    let parent = self.get_parent_details(id).expect("Parent must exist");
+                    let parent = self.get_parent_details(id);
 
-                    Some((id, metadata, emissions, parent))
+                    Some(AssetDetails {
+                        asset_id: id,
+                        metadata,
+                        emissions,
+                        parent,
+                    })
                 }
             }
         }
@@ -919,16 +980,16 @@ mod asset_co2_emissions {
 
         fn new_emissions(
             category: EmissionsCategory,
-            primary: bool,
+            data_source: DataSource,
             balanced: bool,
-            emissions: u128,
+            value: u128,
             date: u64,
         ) -> CO2Emissions {
             CO2Emissions {
                 category,
-                primary,
+                data_source,
                 balanced,
-                emissions,
+                value,
                 date,
             }
         }
@@ -984,7 +1045,7 @@ mod asset_co2_emissions {
             expected_id: AssetId,
             expected_metadata: Metadata,
             expected_owner: AccountId,
-            expected_parent: ParentDetails,
+            expected_parent: Option<ParentDetailsDTO>,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("Encountered invalid contract event data buffer");
@@ -1046,20 +1107,20 @@ mod asset_co2_emissions {
             event: &test::EmittedEvent,
             expected_id: AssetId,
             expected_category: EmissionsCategory,
-            expected_primary: bool,
+            expected_data_source: DataSource,
             expected_balanced: bool,
             expected_date: u64,
-            expected_emissions: u128,
+            expected_value: u128,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("Encountered invalid contract event data buffer");
             if let Event::Emission(Emission {
                 id,
                 category,
-                primary,
+                data_source,
                 balanced,
                 date,
-                emissions,
+                value,
             }) = decoded_event
             {
                 assert_eq!(id, expected_id, "encountered invalid Emission.id");
@@ -1068,18 +1129,15 @@ mod asset_co2_emissions {
                     "encountered invalid Emission.category"
                 );
                 assert_eq!(
-                    primary, expected_primary,
-                    "encountered invalid Emission.primary"
+                    data_source, expected_data_source,
+                    "encountered invalid Emission.data_source"
                 );
                 assert_eq!(
                     balanced, expected_balanced,
                     "encountered invalid Emission.balanced"
                 );
                 assert_eq!(date, expected_date, "encountered invalid Emission.date");
-                assert_eq!(
-                    emissions, expected_emissions,
-                    "encountered invalid Emission.emissions"
-                );
+                assert_eq!(value, expected_value, "encountered invalid Emission.value");
             } else {
                 panic!("encountered unexpected event kind: expected an Emission event")
             }
@@ -1199,16 +1257,16 @@ mod asset_co2_emissions {
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
-            let emissions: u128 = 0;
+            let emissions_value: u128 = 0;
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                emissions,
+                emissions_value,
                 timestamp,
             );
 
@@ -1230,12 +1288,12 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let item0 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 0u128,
                 timestamp,
@@ -1243,7 +1301,7 @@ mod asset_co2_emissions {
 
             let item1 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 1u128,
                 timestamp,
@@ -1251,7 +1309,7 @@ mod asset_co2_emissions {
 
             let item2 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 2u128,
                 timestamp,
@@ -1273,16 +1331,16 @@ mod asset_co2_emissions {
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
-            let e: u128 = 1;
+            let emissions_value: u128 = 1;
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -1290,7 +1348,7 @@ mod asset_co2_emissions {
             let owner = accounts.bob;
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1309,10 +1367,10 @@ mod asset_co2_emissions {
                 &emitted_events[1],
                 expected_asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
-                e,
+                emissions_value,
             );
         }
 
@@ -1326,33 +1384,33 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e1 = 1u128;
+            let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e1,
+                emissions_value_1,
                 timestamp,
             );
 
-            let e2 = 2u128;
+            let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e2,
+                emissions_value_2,
                 timestamp,
             );
 
-            let e3 = 3u128;
+            let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e3,
+                emissions_value_3,
                 timestamp,
             );
 
@@ -1361,7 +1419,7 @@ mod asset_co2_emissions {
             let owner = accounts.eve;
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1380,28 +1438,28 @@ mod asset_co2_emissions {
                 &emitted_events[1],
                 expected_asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 timestamp,
-                e1,
+                emissions_value_1,
             );
             assert_emissions_event(
                 &emitted_events[2],
                 expected_asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
                 timestamp,
-                e2,
+                emissions_value_2,
             );
             assert_emissions_event(
                 &emitted_events[3],
                 expected_asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
-                e3,
+                emissions_value_3,
             );
         }
 
@@ -1421,33 +1479,33 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e1 = 1u128;
+            let emissions_value_1 = 1u128;
             let item1 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e1,
+                emissions_value_1,
                 timestamp,
             );
 
-            let e2 = 2u128;
+            let emissions_value_2 = 2u128;
             let item2 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e2,
+                emissions_value_2,
                 timestamp,
             );
 
-            let e3 = 3u128;
+            let emissions_value_3 = 3u128;
             let item3 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e3,
+                emissions_value_3,
                 timestamp,
             );
 
@@ -1480,13 +1538,13 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let e = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 e,
                 timestamp,
@@ -1521,15 +1579,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1538,12 +1596,12 @@ mod asset_co2_emissions {
             let asset_id = 1;
 
             assert!(contract
-                .blast(accounts.eve, metadata, emissions, parent)
+                .blast(accounts.eve, metadata, emissions, parent.clone())
                 .is_ok());
 
             let parent_from_state = contract.get_parent_details(asset_id);
-            assert!(parent_from_state.is_some());
-            assert_eq!(parent, parent_from_state.unwrap());
+            assert!(parent_from_state.is_none());
+            assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
@@ -1556,15 +1614,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1590,15 +1648,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1624,15 +1682,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1660,15 +1718,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1698,15 +1756,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1733,15 +1791,15 @@ mod asset_co2_emissions {
             let parent = None;
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1753,7 +1811,10 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let parent: ParentDetails = Some((1000, 85));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: 1000,
+                relation: 85,
+            });
 
             set_caller(owner);
             assert_eq!(
@@ -1772,15 +1833,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1797,7 +1858,10 @@ mod asset_co2_emissions {
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let parent: ParentDetails = Some((asset_id, 0));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 0,
+            });
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::InvalidAssetRelation)
@@ -1814,15 +1878,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1837,7 +1901,10 @@ mod asset_co2_emissions {
                 .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
-            let parent: ParentDetails = Some((asset_id, 101));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 101,
+            });
 
             set_caller(accounts.eve);
             assert_eq!(
@@ -1856,15 +1923,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1879,7 +1946,10 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 90));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 90,
+            });
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::NotPaused)
@@ -1896,15 +1966,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1919,10 +1989,13 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            let parent: ParentDetails = Some((asset_id, 100));
+            let parent = Some(ParentDetailsDTO {
+                parent_id: asset_id,
+                relation: 100,
+            });
             assert!(contract.pause(asset_id).is_ok());
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent)
+                .blast(owner, metadata.clone(), emissions, parent.clone())
                 .is_ok());
 
             let expected_asset_id = 2;
@@ -1935,22 +2008,22 @@ mod asset_co2_emissions {
                 expected_asset_id,
                 metadata,
                 owner,
-                parent,
+                parent.clone(),
             );
             assert_emissions_event(
                 &emitted_events[4],
                 expected_asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
-                e,
+                emissions_value,
             );
 
             let parent_from_state = contract.get_parent_details(expected_asset_id);
             assert!(parent_from_state.is_some());
-            assert!(parent_from_state.unwrap().is_some());
-            assert_eq!(parent, parent_from_state.unwrap());
+            assert!(parent_from_state.is_some());
+            assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
@@ -1961,15 +2034,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -1991,15 +2064,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2012,12 +2085,12 @@ mod asset_co2_emissions {
             assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             set_caller(accounts.bob);
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2036,15 +2109,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2055,18 +2128,16 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2085,15 +2156,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2104,16 +2175,14 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
-            let e_1 = 0u128;
+            let emissions_value_1 = 0u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2132,15 +2201,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2151,16 +2220,14 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert!(contract
@@ -2174,10 +2241,10 @@ mod asset_co2_emissions {
                 &emitted_events[2],
                 asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
-                e_1,
+                emissions_value_1,
             );
 
             let expected_emissions: Vec<CO2Emissions> = Vec::from([item, new_emissions_item]);
@@ -2196,15 +2263,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2228,15 +2295,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2249,12 +2316,12 @@ mod asset_co2_emissions {
             assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             set_caller(accounts.bob);
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             assert_eq!(
@@ -2273,15 +2340,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2292,18 +2359,16 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             assert!(contract.pause(asset_id).is_ok());
 
-            let e_1 = 100u128;
+            let emissions_value_1 = 100u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2323,15 +2388,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2342,9 +2407,7 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::new()),
@@ -2362,17 +2425,17 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
             let mut emissions: Vec<CO2Emissions> = Vec::new();
             for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
-                let e = 1u128;
+                let emissions_value = 1u128;
                 let item = new_emissions(
                     emissions_category,
-                    emissions_primary,
+                    emissions_data_source.clone(),
                     emissions_balanced,
-                    e,
+                    emissions_value,
                     timestamp,
                 );
                 emissions.push(item);
@@ -2384,7 +2447,7 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert_eq!(
-                contract.blast(owner, metadata.clone(), emissions.clone(), parent),
+                contract.blast(owner, metadata, emissions.clone(), parent),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
 
@@ -2401,15 +2464,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2424,7 +2487,7 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata, emissions.clone(), parent)
                 .is_ok());
 
             assert_eq!(
@@ -2433,9 +2496,52 @@ mod asset_co2_emissions {
             );
 
             assert_eq!(
-                contract.transfer(accounts.bob, asset_id, Vec::from([item.clone()])),
+                contract.transfer(accounts.bob, asset_id, Vec::from([item])),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
+        }
+
+        #[ink::test]
+        fn should_reject_too_many_chars_in_data_source() {
+            let accounts = get_accounts();
+
+            let mut contract = InfinityAsset::new();
+            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+
+            let parent = None;
+
+            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_category = EmissionsCategory::Upstream;
+            let emissions_data_source = vec![1u8; MAX_DATA_SOURCE_LENGTH as usize + 1];
+
+            let emissions_balanced = true;
+
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                emissions_balanced,
+                emissions_value,
+                timestamp,
+            );
+
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            let expected_asset_id = 1;
+            let owner = accounts.alice;
+
+            set_caller(owner);
+
+            assert_eq!(
+                contract.blast(owner, metadata, emissions, parent),
+                Err(AssetCO2EmissionsError::DataSourceOverflow)
+            );
+
+            assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
@@ -2448,15 +2554,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2467,31 +2573,29 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
-            let e_1 = 0u128;
+            let emissions_value_1 = 0u128;
             let new_emissions_item_0 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
             let new_emissions_item_1 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
             let new_emissions_item_2 = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2514,30 +2618,24 @@ mod asset_co2_emissions {
             let accounts = get_accounts();
 
             let mut contract = InfinityAsset::new();
-            let mut metadata: Metadata = Vec::new();
-            for _ in 0..MAX_METADATA_LENGTH + 1 {
-                metadata.push(0u8);
-            }
+            let metadata: Metadata = vec![0u8; MAX_METADATA_LENGTH as usize + 1];
 
             let parent = None;
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
+            let emissions_value = 1u128;
+            let emissions_item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                emissions_balanced,
+                emissions_value,
+                timestamp,
+            );
 
-            let mut emissions: Vec<CO2Emissions> = Vec::new();
-            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
-                let e = 1u128;
-                let item = new_emissions(
-                    emissions_category,
-                    emissions_primary,
-                    emissions_balanced,
-                    e,
-                    timestamp,
-                );
-                emissions.push(item);
-            }
+            let emissions: Vec<CO2Emissions> = Vec::from([emissions_item]);
 
             let expected_asset_id = 1;
             let owner = accounts.alice;
@@ -2545,7 +2643,7 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert_eq!(
-                contract.blast(owner, metadata.clone(), emissions.clone(), parent),
+                contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::MetadataOverflow)
             );
 
@@ -2562,15 +2660,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2581,17 +2679,15 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_owner = accounts.bob;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
@@ -2609,10 +2705,10 @@ mod asset_co2_emissions {
                 &emitted_events[3],
                 asset_id,
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
                 timestamp,
-                e_1,
+                emissions_value_1,
             );
 
             let expected_emissions: Vec<CO2Emissions> = Vec::from([item, new_emissions_item]);
@@ -2643,15 +2739,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2663,11 +2759,15 @@ mod asset_co2_emissions {
             set_caller(owner);
 
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
-            let expected_value: Vec<AssetDetails> =
-                Vec::from([(asset_id, metadata, emissions, parent)]);
+            let expected_value: Vec<AssetDetails> = Vec::from([AssetDetails {
+                asset_id,
+                metadata,
+                emissions,
+                parent,
+            }]);
             let details_from_state = contract.query_emissions(asset_id);
             assert!(details_from_state.is_some());
             assert_eq!(expected_value, details_from_state.unwrap());
@@ -2683,10 +2783,16 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
 
-            let e = 1u128;
-            let item = new_emissions(emissions_category, emissions_primary, true, e, timestamp);
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2695,31 +2801,46 @@ mod asset_co2_emissions {
 
             set_caller(owner);
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
-            let mut expected_tree_path: Vec<AssetDetails> =
-                Vec::from([(asset_id, metadata.clone(), emissions, parent)]);
+            let mut expected_tree_path: Vec<AssetDetails> = Vec::from([AssetDetails {
+                asset_id,
+                metadata: metadata.clone(),
+                emissions,
+                parent,
+            }]);
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
-                let e = i as u128;
+                let parent = Some(ParentDetailsDTO {
+                    parent_id: asset_id,
+                    relation: (100 - (i % 100)),
+                });
+                let emissions_value = i;
                 let item = new_emissions(
                     EmissionsCategory::Process,
+                    Vec::from([0u8, 1u8, 2u8, 3u8]),
                     false,
-                    false,
-                    e,
+                    emissions_value,
                     timestamp + i as u64,
                 );
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
                 assert!(contract.pause(asset_id).is_ok());
                 assert!(contract
-                    .blast(owner, metadata.clone(), emissions.clone(), parent)
+                    .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                     .is_ok());
 
                 asset_id += 1;
-                expected_tree_path.insert(0, (asset_id, metadata.clone(), emissions, parent));
+                expected_tree_path.insert(
+                    0,
+                    AssetDetails {
+                        asset_id,
+                        metadata: metadata.clone(),
+                        emissions,
+                        parent,
+                    },
+                );
             }
 
             let details_from_state = contract.query_emissions(asset_id);
@@ -2748,15 +2869,15 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
@@ -2767,9 +2888,7 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             assert_eq!(
                 Vec::<AssetId>::from([asset_id]),
@@ -2787,10 +2906,16 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
 
-            let e = 1u128;
-            let item = new_emissions(emissions_category, emissions_primary, true, e, timestamp);
+            let emissions_value = 1u128;
+            let item = new_emissions(
+                emissions_category,
+                emissions_data_source,
+                true,
+                emissions_value,
+                timestamp,
+            );
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
@@ -2799,18 +2924,21 @@ mod asset_co2_emissions {
 
             set_caller(owner);
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
+                .blast(owner, metadata.clone(), emissions, parent)
                 .is_ok());
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent: ParentDetails = Some((asset_id, (100 - (i % 100))));
-                let e = i as u128;
+                let parent = Some(ParentDetailsDTO {
+                    parent_id: asset_id,
+                    relation: (100 - (i % 100)),
+                });
+                let emissions_value = i;
                 let item = new_emissions(
                     EmissionsCategory::Process,
+                    Vec::from([0u8, 1u8, 2u8, 3u8]),
                     false,
-                    false,
-                    e,
+                    emissions_value,
                     timestamp + i as u64,
                 );
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -2838,19 +2966,19 @@ mod asset_co2_emissions {
 
             let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_primary = true;
+            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
             let emissions_balanced = true;
 
-            let e = 1u128;
+            let emissions_value = 1u128;
             let item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source.clone(),
                 emissions_balanced,
-                e,
+                emissions_value,
                 timestamp,
             );
 
-            let emissions: Vec<CO2Emissions> = Vec::from([item.clone()]);
+            let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
             let asset_id = 1;
             let owner = accounts.alice;
@@ -2858,24 +2986,22 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
             assert_eq!(Vec::from([asset_id]), contract.list_assets(owner));
             assert_eq!(Vec::<AssetId>::new(), contract.list_assets(new_owner));
 
-            let e_1 = 69u128;
+            let emissions_value_1 = 69u128;
             let new_emissions_item = new_emissions(
                 emissions_category,
-                emissions_primary,
+                emissions_data_source,
                 emissions_balanced,
-                e_1,
+                emissions_value_1,
                 timestamp,
             );
 
             assert!(contract
-                .transfer(new_owner, asset_id, Vec::from([new_emissions_item.clone()]))
+                .transfer(new_owner, asset_id, Vec::from([new_emissions_item]))
                 .is_ok());
 
             assert_eq!(Vec::<AssetId>::new(), contract.list_assets(owner));

@@ -15,7 +15,8 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 15,
+            "dataSource": "Some Algorithm",
+            "value": 15,
             "date": 1682632800
           }
         ]
@@ -27,7 +28,8 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 10,
+            "dataSource": "Some Algorithm",
+            "value": 10,
             "date": 1705040054
           }
         ]
@@ -39,14 +41,15 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Upstream",
-            "emissions": 5,
+            "dataSource": "Some Algorithm",
+            "value": 5,
             "date": 1755040054
           },
             {
               "category": "Process",
-              "primary": true,
+              "dataSource": "Some Algorithm",
               "balanced": true,
-              "emissions": 5,
+              "value": 5,
               "date": 1755040054
             }
         ]
@@ -58,7 +61,8 @@ Feature: User Story 2
         "emissions": [
           {
             "emission_category": "Process",
-            "emissions": 5,
+            "dataSource": "Some Algorithm",
+            "value": 5,
             "date": 1765040054
           }
         ]
@@ -71,68 +75,77 @@ Feature: User Story 2
     Then The emissions can be calculated offchain for "Upstream" emissions between the dates 1700000000 and 1900000000 with the total equal to 6 based on the following:
     """
     [
-      [
-        4,
-        "0x7b22776569676874223a31357d",
-        [
+      {
+        "assetId": 4,
+        "metadata": "0x7b22776569676874223a31357d",
+        "emissions": [
           {
             "category": "Process",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 5,
+            "value": 5,
             "date": 1765040054
           }
         ],
-        [3, 15]
-      ],
-      [
-        3,
-        "0x7b22776569676874223a32357d",
-        [
+        "parent": {
+          "parentId": 3,
+          "relation": 15
+        }
+      },
+      {
+        "assetId": 3,
+        "metadata": "0x7b22776569676874223a32357d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 5,
+            "value": 5,
             "date": 1755040054
           },
           {
             "category": "Process",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 5,
+            "value": 5,
             "date": 1755040054
           }
         ],
-        [2, 25]
-      ],
-      [
-        2,
-        "0x7b22776569676874223a35307d",
-        [
+        "parent": {
+          "parentId": 2,
+          "relation": 25
+        }
+      },
+      {
+        "assetId": 2,
+        "metadata": "0x7b22776569676874223a35307d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 10,
+            "value": 10,
             "date": 1705040054
           }
         ],
-        [1, 50]
-      ],
-      [
-        1,
-        "0x7b22776569676874223a3130307d",
-        [
+        "parent": {
+          "parentId": 1,
+          "relation": 50
+        }
+      },
+      {
+        "assetId": 1,
+        "metadata": "0x7b22776569676874223a3130307d",
+        "emissions": [
           {
             "category": "Upstream",
-            "primary": true,
+            "dataSource": "0x536f6d6520416c676f726974686d",
             "balanced": true,
-            "emissions": 15,
+            "value": 15,
             "date": 1682632800
           }
         ],
-        null
-      ]
+        "parent": null
+      }
     ]
     """
