@@ -15,7 +15,7 @@ on:
 jobs:
     check:
         # The type of runner that the job will run on
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
         env:
             # Fix version to prevent cache misses with nightly changes
             RUST_NIGHTLY: nightly-2023-04-12
@@ -41,6 +41,17 @@ jobs:
                   toolchain: ${{ env.RUST_NIGHTLY }}
                   override: true
                   components: rustfmt, clippy, rust-src
+
+            - name: Rust Cache
+              uses: Swatinem/rust-cache@988c164c3d0e93c4dbab36aaf5bbeb77425b2894 # v2.4.0
+              with:
+                  cache-on-failure: true
+                  cache-all-crates: true
+
+            # Fail fast: check formatting first as it doesn't require compilation
+            - name: Check formatting
+              run: |
+                  cargo fmt --check
 
             - name: Install `cargo-contract`
               uses: actions-rs/cargo@v1
@@ -70,11 +81,6 @@ jobs:
                   cargo contract --version
                   substrate-contracts-node --version
 
-            # Fail fast: check formatting first as it doesn't require compilation
-            - name: Check formatting
-              run: |
-                  cargo fmt --check
-
             - name: Check JS formatting with Prettier
               run: |
                   yarn prettier --check .
@@ -82,18 +88,6 @@ jobs:
             - name: Check JS formatting with ESLint
               run: |
                   yarn run eslint .
-
-            - name: Cache Build artefacts
-              uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{  hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
 
             - name: Check Contract Build
               run: |
