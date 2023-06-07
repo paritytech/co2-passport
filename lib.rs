@@ -737,7 +737,7 @@ mod asset_co2_emissions {
         }
 
         /// Save new emissions for asset and emit an event for each emission
-        fn save_new_emission(
+        fn save_new_co2_emissions(
             &mut self,
             id: &AssetId,
             emissions: &[CO2Emissions],
@@ -846,7 +846,7 @@ mod asset_co2_emissions {
             });
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emission(&asset_id, &emissions)?;
+            self.save_new_co2_emissions(&asset_id, &emissions)?;
 
             Ok(())
         }
@@ -873,7 +873,7 @@ mod asset_co2_emissions {
             self.env().emit_event(Transfer { from, to, id });
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emission(&id, &emissions)?;
+            self.save_new_co2_emissions(&id, &emissions)?;
 
             Ok(())
         }
@@ -906,7 +906,7 @@ mod asset_co2_emissions {
             self.ensure_emissions_item_correct(&emissions)?;
 
             // Save CO2 emissions & emit corresponding events
-            self.save_new_emission(&id, &Vec::from([emissions]))?;
+            self.save_new_co2_emissions(&id, &Vec::from([emissions]))?;
             Ok(())
         }
 
@@ -963,6 +963,7 @@ mod asset_co2_emissions {
     #[cfg(test)]
     mod tests {
         use ink::env::test;
+        use ink::env::test::DefaultAccounts;
         use ink::env::DefaultEnvironment;
 
         use super::*;
@@ -971,9 +972,24 @@ mod asset_co2_emissions {
 
         type Event = <InfinityAsset as ::ink::reflect::ContractEventBase>::Type;
 
-        fn get_accounts() -> test::DefaultAccounts<DefaultEnvironment> {
+        fn get_accounts() -> DefaultAccounts<DefaultEnvironment> {
             test::default_accounts::<DefaultEnvironment>()
         }
+
+        fn prepare_env() -> (DefaultAccounts<DefaultEnvironment>, InfinityAsset) {
+            (get_accounts(), InfinityAsset::new())
+        }
+
+        fn env_with_default_asset() -> (
+            (DefaultAccounts<DefaultEnvironment>, InfinityAsset),
+            (AssetId, AccountId),
+        ) {
+            let (accounts, mut contract) = prepare_env();
+            let asset_owner = accounts.django;
+            let asset_id = blast_default_asset(&mut contract, &asset_owner);
+            ((accounts, contract), (asset_id, asset_owner))
+        }
+
         fn set_caller(sender: AccountId) {
             test::set_caller::<DefaultEnvironment>(sender);
         }
@@ -994,47 +1010,58 @@ mod asset_co2_emissions {
             }
         }
 
-        fn new_emissions(start: u8, end: u8) -> Vec<CO2Emissions> {
+        fn default_data_source() -> Vec<u8> {
+            Vec::from([0u8, 1u8, 2u8, 3u8])
+        }
+
+        fn new_emissions(items: u8) -> Vec<CO2Emissions> {
             let mut emissions = Vec::new();
-            for i in start..end {
+            for i in 0..items {
                 emissions.push(new_emission(
                     EmissionsCategory::Upstream,
-                    Vec::from([0u8, 1u8, 2u8, 3u8]),
+                    default_data_source(),
                     true,
-                    i as u128,
-                    1682632800,
+                    i as u128 + 1, // avoid Zero Emissions Item
+                    default_timestamp(),
                 ));
             }
             emissions
         }
 
-        fn get_default_emission() -> CO2Emissions {
+        fn default_metadata() -> Vec<u8> {
+            Vec::from([0u8, 1u8, 2u8, 3u8])
+        }
+
+        fn default_timestamp() -> u64 {
+            // 28.04.2023 00:00:00
+            1682632800
+        }
+
+        fn default_emission_item() -> CO2Emissions {
             let emissions_category = EmissionsCategory::Upstream;
-            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let emissions_data_source = default_data_source();
             let emissions_balanced = true;
-            let emissions = 1;
-            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
+            let emissions_value = 1;
+            let timestamp: u64 = default_timestamp();
+
             new_emission(
                 emissions_category,
                 emissions_data_source,
                 emissions_balanced,
-                emissions,
+                emissions_value,
                 timestamp,
             )
         }
 
-        fn blast_default_asset(contract: &mut InfinityAsset) {
-            let accounts = get_accounts();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+        fn blast_default_asset(contract: &mut InfinityAsset, owner: &AccountId) -> AssetId {
+            let metadata = default_metadata();
             let parent = None;
 
-            let item = get_default_emission();
+            let emissions: Vec<CO2Emissions> = new_emissions(1);
 
-            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+            assert!(contract.blast(*owner, metadata, emissions, parent).is_ok());
 
-            assert!(contract
-                .blast(accounts.eve, metadata, emissions, parent)
-                .is_ok());
+            contract.next_id - 1
         }
 
         /// For calculating the event topic hash.
@@ -1240,51 +1267,63 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_set_new_owner() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
+            // Check if proper contract owner set
             assert_eq!(contract.contract_owner, accounts.alice);
 
+            // Set a new contract owner
             assert!(contract.set_contract_owner(accounts.bob).is_ok());
+
+            // Check if new contract owner is properly set
             assert_eq!(contract.contract_owner, accounts.bob);
         }
 
         #[ink::test]
         fn should_reject_set_new_owner() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
+            // Check initial contract owner
             assert_eq!(contract.contract_owner, accounts.alice);
 
             set_caller(accounts.bob);
+
+            // Check if proper error is returned
+            // While trying to set a new contract owner as nonowner
             assert_eq!(
                 contract.set_contract_owner(accounts.bob),
                 Err(AssetCO2EmissionsError::NotContractOwner)
             );
+
+            // Check if contract owner remain unchanged
             assert_eq!(contract.contract_owner, accounts.alice);
         }
 
         #[ink::test]
         #[should_panic(expected = "Only contract owner can set code hash")]
         fn should_reject_set_code() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
+            // Check initial contract owner
             assert_eq!(contract.contract_owner, accounts.alice);
 
             set_caller(accounts.bob);
+
+            // Check if panic
+            // While trying to set contract code as nonowner
             contract.set_code([0x0; 32]);
         }
 
         #[ink::test]
         fn should_reject_empty_emissions_during_blast() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
             let emissions: Vec<CO2Emissions> = Vec::new();
 
+            // Check if proper error is returned
+            // While trying to blast asset without CO2 Emissions items
             assert_eq!(
                 contract.blast(accounts.alice, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::EmissionsEmpty)
@@ -1293,17 +1332,19 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_single_zero_emissions_item_during_blast() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let mut item = get_default_emission();
+            let mut item = default_emission_item();
             item.value = 0;
 
-            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+            let mut emissions: Vec<CO2Emissions> = new_emissions(1);
+            emissions[0].value = 0;
 
+            // Check if proper error is returned
+            // While trying to blast asset with Zero emissions item
             assert_eq!(
                 contract.blast(accounts.alice, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::ZeroEmissionsItem)
@@ -1312,14 +1353,16 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_zero_emissions_item_in_array_during_blast() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let emissions = new_emissions(0, 3);
+            let mut emissions = new_emissions(3);
+            emissions[1].value = 0;
 
+            // Check if proper error is returned
+            // While trying to blast asset with a Zero emissions item in many items
             assert_eq!(
                 contract.blast(accounts.alice, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::ZeroEmissionsItem)
@@ -1328,26 +1371,29 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_blast_with_single_emissions_item() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let item = get_default_emission();
-            let emissions: Vec<CO2Emissions> = Vec::from([item.clone()]);
+            let emissions: Vec<CO2Emissions> = new_emissions(1);
 
             let owner = accounts.bob;
 
+            // Check if asset is blasted
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent.clone())
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
-            // 1 * Blasted + 1 * Emissions
+
+            // Check events count
+            // 1 * Blasted + 1 * Emission
             assert_eq!(1 + 1, emitted_events.len());
+
+            // Check Blasted event
             assert_blasted_event(
                 &emitted_events[0],
                 expected_asset_id,
@@ -1355,46 +1401,48 @@ mod asset_co2_emissions {
                 owner,
                 parent,
             );
-            let e = item;
+
+            // Check Emission event
             assert_emissions_event(
                 &emitted_events[1],
                 expected_asset_id,
-                e.category,
-                e.data_source,
-                e.balanced,
-                e.date,
-                e.value,
+                emissions[0].category,
+                emissions[0].data_source.clone(),
+                emissions[0].balanced,
+                emissions[0].date,
+                emissions[0].value,
             );
         }
 
         #[ink::test]
         fn should_blast_with_multiple_emissions_items() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let timestamp: u64 = 1682632800; // 28.04.2023 00:00:00
-            let emissions_category = EmissionsCategory::Upstream;
-            let emissions_data_source = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let emissions_balanced = true;
-
-            let start_id = 1;
-            let items_count = 3u8;
-            let emissions = new_emissions(start_id, items_count + 1);
+            let emissions_items_count: u8 = 3;
+            let emissions = new_emissions(emissions_items_count);
 
             let owner = accounts.eve;
 
+            // Check if asset is blasted
             assert!(contract
-                .blast(owner, metadata.clone(), emissions, parent.clone())
+                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
                 .is_ok());
 
             let expected_asset_id = 1;
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
-            // 1 * Blasted + 3 * Emissions
-            assert_eq!(1 + items_count, test::recorded_events().count() as u8);
+
+            // Check proper events count
+            // 1 * Blasted + 3 * Emission
+            assert_eq!(
+                1 + emissions_items_count,
+                test::recorded_events().count() as u8
+            );
+
+            // Check Blasted event for the asset
             assert_blasted_event(
                 &emitted_events[0],
                 expected_asset_id,
@@ -1403,15 +1451,16 @@ mod asset_co2_emissions {
                 parent,
             );
 
-            for i in 1..(items_count + 1) {
+            // Check Emission event for each emission item
+            for i in 0..(emissions_items_count as usize) {
                 assert_emissions_event(
-                    &emitted_events[i as usize],
+                    &emitted_events[i + 1],
                     expected_asset_id,
-                    emissions_category,
-                    emissions_data_source.clone(),
-                    emissions_balanced,
-                    timestamp,
-                    i as u128,
+                    emissions[i].category,
+                    emissions[i].data_source.clone(),
+                    emissions[i].balanced,
+                    emissions[i].date,
+                    emissions[i].value,
                 );
             }
         }
@@ -1419,28 +1468,30 @@ mod asset_co2_emissions {
         #[ink::test]
         fn should_nonexistent_get_emissions_work_properly() {
             let contract = InfinityAsset::new();
+
+            // Check if contract return proper value for nonexistent asset
             assert!(contract.get_asset_emissions(1000).is_none());
         }
 
         #[ink::test]
         fn should_get_emissions_work_properly() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let start_id = 1;
-            let end_id = 3;
-            let emissions = new_emissions(start_id, end_id);
+            let emissions = new_emissions(3);
 
             let asset_id = 1;
 
+            // Check if asset is blasted
             assert!(contract
                 .blast(accounts.eve, metadata, emissions.clone(), parent)
                 .is_ok());
 
             let emissions_from_state = contract.get_asset_emissions(asset_id);
+
+            // Check if contract return proper emissions data
             assert!(emissions_from_state.is_some());
             assert!(emissions.iter().eq(emissions_from_state.unwrap().iter()));
         }
@@ -1448,19 +1499,20 @@ mod asset_co2_emissions {
         #[ink::test]
         fn should_nonexistent_get_metadata_work_properly() {
             let contract = InfinityAsset::new();
+
+            // Check if contract return proper value for nonexistent asset
             assert!(contract.get_metadata(1000).is_none());
         }
 
         #[ink::test]
         fn should_get_metadata_work_properly() {
-            let mut contract = InfinityAsset::new();
+            let ((_accounts, contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
 
             let metadata_from_state = contract.get_metadata(asset_id);
+
+            // Check if contract return proper metadata
             assert!(metadata_from_state.is_some());
             assert!(metadata.iter().eq(metadata_from_state.unwrap().iter()));
         }
@@ -1468,63 +1520,54 @@ mod asset_co2_emissions {
         #[ink::test]
         fn should_nonexistent_get_parent_work_properly() {
             let contract = InfinityAsset::new();
+
+            // Check if contract return proper value for nonexistent asset
             assert!(contract.get_parent_details(1000).is_none());
         }
 
         #[ink::test]
         fn should_get_parent_for_root_asset_work_properly() {
-            let mut contract = InfinityAsset::new();
+            let ((_accounts, contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
             let parent = None;
 
             let parent_from_state = contract.get_parent_details(asset_id);
+
+            // Check if contract return proper asset's parent
             assert!(parent_from_state.is_none());
             assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
         fn should_owner_of_work_properly() {
-            let accounts = get_accounts();
-
-            let mut contract = InfinityAsset::new();
-
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
+            let ((_accounts, contract), (asset_id, asset_owner)) = env_with_default_asset();
 
             let owner_from_state = contract.owner_of(asset_id);
+
+            // Check if contract return proper asset's owner
             assert!(owner_from_state.is_some());
-            assert_eq!(owner, owner_from_state.unwrap());
+            assert_eq!(asset_owner, owner_from_state.unwrap());
         }
 
         #[ink::test]
         fn should_already_blasted_asset_not_be_paused() {
-            let mut contract = InfinityAsset::new();
-
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
+            let ((_accounts, contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
             let paused = contract.has_paused(asset_id);
+
+            // Check if asset is not paused
             assert!(paused.is_some());
             assert!(!paused.unwrap());
         }
 
         #[ink::test]
         fn should_not_owner_not_be_able_to_set_paused_state() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(accounts.eve);
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-
-            set_caller(accounts.bob);
+            // Check if proper error is returned
+            // While trying to pause an asset as nonowner
             assert_eq!(
                 contract.pause(asset_id),
                 Err(AssetCO2EmissionsError::NotOwner)
@@ -1533,36 +1576,34 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_owner_be_able_to_set_paused_state() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
+            // Check if `pause` work
             assert!(contract.pause(asset_id).is_ok());
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
-            // 1* Blasted + 1 * Emissions + 1 * Paused
+
+            // Check events count
+            // 1* Blasted + 1 * Emission + 1 * Paused
             assert_eq!(1 + 1 + 1, test::recorded_events().count());
+
+            // Check Paused event
             assert_paused_event(&emitted_events[2], asset_id);
         }
 
         #[ink::test]
         fn should_owner_not_be_able_to_set_paused_state_while_already_paused() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            set_caller(asset_owner);
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
+            // Pause the asset
             assert!(contract.pause(asset_id).is_ok());
+
+            // Check if proper error is returned
+            // While trying to pause already paused asset
             assert_eq!(
                 contract.pause(asset_id),
                 Err(AssetCO2EmissionsError::AlreadyPaused)
@@ -1571,21 +1612,13 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_non_existent_parent_in_blast() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let parent = None;
+            let metadata = default_metadata();
 
-            let item = get_default_emission();
-
-            let emissions: Vec<CO2Emissions> = Vec::from([item]);
+            let emissions: Vec<CO2Emissions> = new_emissions(1);
 
             let owner = accounts.alice;
-
-            assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent)
-                .is_ok());
 
             let parent = Some(ParentDetailsDTO {
                 parent_id: 1000,
@@ -1593,6 +1626,9 @@ mod asset_co2_emissions {
             });
 
             set_caller(owner);
+
+            // Check if proper error is returned
+            // While trying to blast asset with nonexistent parent
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::AssetNotFound)
@@ -1601,45 +1637,34 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_0_parent_relation_in_blast() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            set_caller(asset_owner);
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
+            // Pause an asset
             assert!(contract.pause(asset_id).is_ok());
 
             let parent = Some(ParentDetailsDTO {
                 parent_id: asset_id,
                 relation: 0,
             });
-            let metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let emissions = Vec::from([get_default_emission()]);
+            let metadata = default_metadata();
+            let emissions = new_emissions(1);
 
+            // Check if proper error is returned
+            // While trying to blast child asset with invalid relation value
             assert_eq!(
-                contract.blast(owner, metadata, emissions, parent),
+                contract.blast(asset_owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::InvalidAssetRelation)
             );
         }
 
         #[ink::test]
         fn should_reject_not_owner_creating_child_in_blast() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            let emissions = Vec::from([get_default_emission()]);
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-
-            set_caller(owner);
+            let emissions = new_emissions(1);
+            let metadata = default_metadata();
 
             let parent = Some(ParentDetailsDTO {
                 parent_id: asset_id,
@@ -1647,62 +1672,59 @@ mod asset_co2_emissions {
             });
 
             set_caller(accounts.alice);
+
+            // Check if proper error is returned
+            // While trying to blast child asset as parent nonowner
             assert_eq!(
-                contract.blast(owner, metadata, emissions, parent),
+                contract.blast(asset_owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::NotOwner)
             );
         }
 
         #[ink::test]
         fn should_reject_not_paused_in_blast() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            let emissions = new_emissions(1);
+            let metadata = default_metadata();
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-            let emissions = Vec::from([get_default_emission()]);
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-
-            set_caller(owner);
+            set_caller(asset_owner);
 
             let parent = Some(ParentDetailsDTO {
                 parent_id: asset_id,
                 relation: 90,
             });
+
+            // Check if proper error is returned
+            // While trying to blast a child asset for not paused parent
             assert_eq!(
-                contract.blast(owner, metadata, emissions, parent),
+                contract.blast(asset_owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::NotPaused)
             );
         }
 
         #[ink::test]
         fn should_blast_child() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
-            let metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let e = get_default_emission();
+            let metadata = default_metadata();
+            let emissions = new_emissions(1);
             let parent = Some(ParentDetailsDTO {
                 parent_id: asset_id,
                 relation: 100,
             });
 
+            // Pause parent asset
             assert!(contract.pause(asset_id).is_ok());
+
+            // Blast child asset
             assert!(contract
                 .blast(
-                    owner,
+                    asset_owner,
                     metadata.clone(),
-                    Vec::from([e.clone()]),
+                    emissions.clone(),
                     parent.clone()
                 )
                 .is_ok());
@@ -1710,41 +1732,47 @@ mod asset_co2_emissions {
             let expected_asset_id = 2;
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
-            // 1 * Blasted + 1 * Emissions + 1 * Paused + 1 * Blasted + 1 * Emissions
+
+            // Check events count
+            // 1 * Blasted + 1 * Emission + 1 * Paused + 1 * Blasted + 1 * Emission
             assert_eq!(1 + 1 + 1 + 1 + 1, emitted_events.len());
+
+            // Check Blasted event
             assert_blasted_event(
                 &emitted_events[3],
                 expected_asset_id,
                 metadata,
-                owner,
+                asset_owner,
                 parent.clone(),
             );
+
+            // Check Emission event for already blasted child asset
             assert_emissions_event(
                 &emitted_events[4],
                 expected_asset_id,
-                e.category,
-                e.data_source,
-                e.balanced,
-                e.date,
-                e.value,
+                emissions[0].category,
+                emissions[0].data_source.clone(),
+                emissions[0].balanced,
+                emissions[0].date,
+                emissions[0].value,
             );
 
+            // Check child asset's parent
             let parent_from_state = contract.get_parent_details(expected_asset_id);
-            assert!(parent_from_state.is_some());
             assert!(parent_from_state.is_some());
             assert_eq!(parent, parent_from_state);
         }
 
         #[ink::test]
         fn should_not_add_emissions_to_nonexistent_asset() {
-            let _accounts = get_accounts();
-
             let mut contract = InfinityAsset::new();
 
-            let item = get_default_emission();
+            let item = default_emission_item();
 
             let asset_id = 1;
 
+            // Check if proper error is returned
+            // While trying to add CO2 Emissions to nonexistent asset
             assert_eq!(
                 contract.add_emissions(asset_id, item),
                 Err(AssetCO2EmissionsError::AssetNotFound)
@@ -1753,67 +1781,47 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_not_owner_not_be_able_to_add_emissions() {
-            let accounts = get_accounts();
-
-            let mut contract = InfinityAsset::new();
-
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
+            let ((accounts, mut contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
             set_caller(accounts.bob);
 
-            let new_emission_item = get_default_emission();
-
+            // Check if proper error is returned
+            // While trying to add CO2 Emissions as asset's nonowner
             assert_eq!(
-                contract.add_emissions(asset_id, new_emission_item),
+                contract.add_emissions(asset_id, default_emission_item()),
                 Err(AssetCO2EmissionsError::NotOwner)
             );
         }
 
         #[ink::test]
         fn should_reject_paused_in_add_emissions() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
-
-            let e = get_default_emission();
-
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
+            // Pause the asset first
             assert!(contract.pause(asset_id).is_ok());
 
+            // Check if proper error is returned
+            // While trying to add CO2 Emissions in Paused state
             assert_eq!(
-                contract.add_emissions(asset_id, e),
+                contract.add_emissions(asset_id, default_emission_item()),
                 Err(AssetCO2EmissionsError::AlreadyPaused)
             );
         }
 
         #[ink::test]
         fn should_reject_zero_emissions_item_in_add_emissions() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
+            // Prepare Zero emissions item
+            let mut new_emission_item = default_emission_item();
+            new_emission_item.value = 0u128;
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
-            let emissions_value_0 = 0u128;
-            let mut new_emission_item = get_default_emission();
-            new_emission_item.value = emissions_value_0;
-
+            // Check if proper error is returned
+            // While trying to add Zero emissions item in `add_emissions`
             assert_eq!(
                 contract.add_emissions(asset_id, new_emission_item),
                 Err(AssetCO2EmissionsError::ZeroEmissionsItem)
@@ -1822,42 +1830,37 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_owner_be_able_to_add_emissions() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
+            let emission_item = default_emission_item();
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
-            let emissions_value_1 = 1u128;
-            let mut new_emission_item = get_default_emission();
-            new_emission_item.value = emissions_value_1;
-
+            // Add CO2 Emissions item
             assert!(contract
-                .add_emissions(asset_id, new_emission_item.clone())
+                .add_emissions(asset_id, emission_item.clone())
                 .is_ok());
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
 
-            let e = new_emission_item.clone();
+            // Check events count
             // 1 * Blasted + 1 * Emissions + 1 * Emissions
             assert_eq!(1 + 1 + 1, emitted_events.len());
             assert_emissions_event(
                 &emitted_events[2],
                 asset_id,
-                e.category,
-                e.data_source.clone(),
-                e.balanced,
-                e.date,
-                emissions_value_1,
+                emission_item.category,
+                emission_item.data_source.clone(),
+                emission_item.balanced,
+                emission_item.date,
+                emission_item.value,
             );
 
-            let expected_emissions: Vec<CO2Emissions> = Vec::from([e, new_emission_item]);
+            let expected_emissions: Vec<CO2Emissions> =
+                Vec::from([default_emission_item(), emission_item]);
             let emissions_from_state = contract.get_asset_emissions(asset_id);
+
+            // Check if contract return proper CO2 Emissions data
             assert!(emissions_from_state.is_some());
             assert!(expected_emissions
                 .iter()
@@ -1866,16 +1869,16 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_not_transfer_nonexistent_asset() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-
-            let item = get_default_emission();
+            let item = default_emission_item();
 
             let asset_id = 1;
 
             set_caller(accounts.alice);
 
+            // Check if proper error is returned
+            // While trying to transfer nonexistent asset
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::from([item])),
                 Err(AssetCO2EmissionsError::AssetNotFound)
@@ -1884,58 +1887,43 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_not_owner_not_be_able_to_transfer() {
-            let accounts = get_accounts();
-
-            let mut contract = InfinityAsset::new();
-
-            blast_default_asset(&mut contract);
+            let ((accounts, mut contract), (asset_id, _asset_owner)) = env_with_default_asset();
 
             set_caller(accounts.bob);
 
-            let asset_id = 1;
-
-            let new_emission_item = get_default_emission();
-
+            // Check if proper error is returned
+            // While trying to transfer asset as nonowner
             assert_eq!(
-                contract.transfer(accounts.bob, asset_id, Vec::from([new_emission_item])),
+                contract.transfer(accounts.bob, asset_id, new_emissions(1)),
                 Err(AssetCO2EmissionsError::NotOwner)
             );
         }
 
         #[ink::test]
         fn should_reject_transfer_in_paused() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-
-            set_caller(accounts.eve);
-
+            // Pause an asset
             assert!(contract.pause(asset_id).is_ok());
 
-            let new_emission_item = get_default_emission();
-
+            // Check if proper error is returned
+            // While trying to transfer asset in Paused state
             assert_eq!(
-                contract.transfer(accounts.bob, asset_id, Vec::from([new_emission_item])),
+                contract.transfer(accounts.bob, asset_id, new_emissions(2)),
                 Err(AssetCO2EmissionsError::AlreadyPaused)
             );
         }
 
         #[ink::test]
         fn should_reject_empty_emissions_in_transfer() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            set_caller(asset_owner);
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
+            // Check if proper error is returned
+            // While trying to transfer asset with empty vector of CO2 Emissions items
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::new()),
                 Err(AssetCO2EmissionsError::EmissionsEmpty)
@@ -1944,59 +1932,57 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_too_many_emissions_on_blast() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let mut emissions: Vec<CO2Emissions> = Vec::new();
-            for _ in 0..MAX_EMISSIONS_PER_ASSET + 1 {
-                emissions.push(get_default_emission());
-            }
+            let emissions: Vec<CO2Emissions> = new_emissions(MAX_EMISSIONS_PER_ASSET + 1);
 
             let expected_asset_id = 1;
             let owner = accounts.alice;
 
             set_caller(owner);
 
+            // Check if proper error is returned
+            // While trying to blast asset with too many emissions items
             assert_eq!(
-                contract.blast(owner, metadata, emissions.clone(), parent),
+                contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
 
+            // Check if asset is not blasted
             assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
         fn should_reject_too_many_emissions_on_add() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
             let parent = None;
 
-            let mut emissions: Vec<CO2Emissions> = Vec::new();
-            for _ in 0..MAX_EMISSIONS_PER_ASSET {
-                emissions.push(get_default_emission());
-            }
+            let emissions: Vec<CO2Emissions> = new_emissions(MAX_EMISSIONS_PER_ASSET);
 
             let asset_id = 1;
             let owner = accounts.alice;
 
             set_caller(owner);
 
-            assert!(contract
-                .blast(owner, metadata, emissions.clone(), parent)
-                .is_ok());
+            // Blast asset with max emissions items count
+            assert!(contract.blast(owner, metadata, emissions, parent).is_ok());
 
-            let item = get_default_emission();
+            let item = default_emission_item();
 
+            // Check if proper error is returned
+            // While trying to add emission item causing overflow
             assert_eq!(
                 contract.add_emissions(asset_id, item.clone()),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
             );
 
+            // Check if proper error is returned
+            // While trying to transfer with emission item causing overflow
             assert_eq!(
                 contract.transfer(accounts.bob, asset_id, Vec::from([item])),
                 Err(AssetCO2EmissionsError::EmissionsOverflow)
@@ -2005,15 +1991,14 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_reject_too_many_chars_in_data_source() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let metadata = default_metadata();
 
             let parent = None;
 
             let emissions_data_source = vec![1u8; MAX_DATA_SOURCE_LENGTH as usize + 1];
-            let mut item = get_default_emission();
+            let mut item = default_emission_item();
             item.data_source = emissions_data_source;
 
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
@@ -2027,122 +2012,108 @@ mod asset_co2_emissions {
 
             set_caller(owner);
 
+            // Check if proper error is returned
+            // While trying to blast asset with emissions item `data_source` overflow
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::DataSourceOverflow)
             );
 
+            // Check if asset is not blasted
             assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
         fn should_reject_zero_emissions_item_in_transfer() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
+            let mut emissions = new_emissions(4);
+            emissions[2].value = 0;
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
-            let emissions_value_1 = 0u128;
-            let mut new_emission_item_0 = get_default_emission();
-            new_emission_item_0.value = emissions_value_1;
-
-            let new_emission_item_1 = get_default_emission();
-            let new_emission_item_2 = get_default_emission();
-
+            // Check if proper error is returned
+            // While trying to transfer with Zero emission item
             assert_eq!(
-                contract.transfer(
-                    accounts.bob,
-                    asset_id,
-                    Vec::from([
-                        new_emission_item_1,
-                        new_emission_item_0,
-                        new_emission_item_2
-                    ])
-                ),
+                contract.transfer(accounts.bob, asset_id, emissions),
                 Err(AssetCO2EmissionsError::ZeroEmissionsItem)
             );
         }
 
         #[ink::test]
         fn should_reject_too_many_chars_in_metadata() {
-            let accounts = get_accounts();
+            let (accounts, mut contract) = prepare_env();
 
-            let mut contract = InfinityAsset::new();
             let metadata: Metadata = vec![0u8; MAX_METADATA_LENGTH as usize + 1];
 
             let parent = None;
 
-            let emissions = Vec::from([get_default_emission()]);
+            let emissions = new_emissions(1);
 
             let expected_asset_id = 1;
             let owner = accounts.alice;
 
             set_caller(owner);
 
+            // Check if proper error is returned
+            // While trying to blast asset with `metadata` overflow
             assert_eq!(
                 contract.blast(owner, metadata, emissions, parent),
                 Err(AssetCO2EmissionsError::MetadataOverflow)
             );
 
+            // Check if asset is not blasted
             assert!(contract.get_asset(expected_asset_id).is_none());
         }
 
         #[ink::test]
         fn should_owner_be_able_to_transfer() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
+            set_caller(asset_owner);
 
-            blast_default_asset(&mut contract);
+            let _item = default_emission_item();
 
-            let asset_id = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
-            let item = get_default_emission();
-
-            let emissions_value_1 = 100u128;
             let new_owner = accounts.bob;
-            let mut new_emission_item = get_default_emission();
-            new_emission_item.category = EmissionsCategory::Transport;
-            new_emission_item.value = emissions_value_1;
 
+            let emissions = new_emissions(1);
+
+            // Transfer asset
             assert!(contract
-                .transfer(new_owner, asset_id, Vec::from([new_emission_item.clone()]))
+                .transfer(new_owner, asset_id, emissions.clone())
                 .is_ok());
 
             let emitted_events = test::recorded_events().collect::<Vec<_>>();
-            // 1 * Blasted + 1 * Emissions + 1 * Transfer + 1 * Emissions
+
+            // Check emitted evetns count
+            // 1 * Blasted + 1 * Emission + 1 * Transfer + 1 * Emission
             assert_eq!(1 + 1 + 1 + 1, emitted_events.len());
 
-            assert_transfer_event(&emitted_events[2], asset_id, owner, new_owner);
+            // Check Transfer event
+            assert_transfer_event(&emitted_events[2], asset_id, asset_owner, new_owner);
 
-            let e = new_emission_item.clone();
-
+            // Check Emission event
             assert_emissions_event(
                 &emitted_events[3],
                 asset_id,
-                e.category,
-                e.data_source,
-                e.balanced,
-                e.date,
-                emissions_value_1,
+                emissions[0].category,
+                emissions[0].data_source.clone(),
+                emissions[0].balanced,
+                emissions[0].date,
+                emissions[0].value,
             );
 
-            let expected_emissions: Vec<CO2Emissions> = Vec::from([item, new_emission_item]);
+            let expected_emissions: Vec<CO2Emissions> =
+                Vec::from([default_emission_item(), emissions[0].clone()]);
             let emissions_from_state = contract.get_asset_emissions(asset_id);
+
+            // Check asset's CO2 Emissions items
             assert!(emissions_from_state.is_some());
             assert!(expected_emissions
                 .iter()
                 .eq(emissions_from_state.unwrap().iter()));
 
+            // Check asset's owner
             let owner_from_state = contract.owner_of(asset_id);
             assert!(owner_from_state.is_some());
             assert_eq!(new_owner, owner_from_state.unwrap());
@@ -2156,18 +2127,12 @@ mod asset_co2_emissions {
 
         #[ink::test]
         fn should_query_emissions_for_single_asset_work_properly() {
-            let accounts = get_accounts();
+            let ((_accounts, contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            set_caller(asset_owner);
 
-            let asset_id: AssetId = 1;
-            let owner = accounts.alice;
-
-            set_caller(owner);
-
-            let emissions = Vec::from([get_default_emission()]);
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
+            let emissions = Vec::from([default_emission_item()]);
+            let metadata: Metadata = default_metadata();
             let parent = None;
 
             let expected_value: Vec<AssetDetails> = Vec::from([AssetDetails {
@@ -2176,50 +2141,54 @@ mod asset_co2_emissions {
                 emissions,
                 parent,
             }]);
+
             let details_from_state = contract.query_emissions(asset_id);
+
+            // Check single asset tree
             assert!(details_from_state.is_some());
             assert_eq!(expected_value, details_from_state.unwrap());
         }
 
         #[ink::test]
         fn should_query_emissions_for_longer_path_work_properly() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (mut asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-            let parent = None;
+            let metadata = default_metadata();
 
-            blast_default_asset(&mut contract);
-
-            let emissions: Vec<CO2Emissions> = Vec::from([get_default_emission()]);
-
-            let mut asset_id: AssetId = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
+            let emissions: Vec<CO2Emissions> = Vec::from([default_emission_item()]);
 
             let mut expected_tree_path: Vec<AssetDetails> = Vec::from([AssetDetails {
                 asset_id,
                 metadata: metadata.clone(),
                 emissions,
-                parent,
+                parent: None,
             }]);
 
             let timestamp = 1_000_000_000u64;
 
+            set_caller(asset_owner);
             // create long token tree path
             for i in 1..1_000 {
                 let parent = Some(ParentDetailsDTO {
                     parent_id: asset_id,
                     relation: (100 - (i % 100)),
                 });
-                let mut item = get_default_emission();
-                item.value = i;
-                item.date = timestamp + i as u64;
-                let emissions: Vec<CO2Emissions> = Vec::from([item]);
+
+                let mut emissions = new_emissions(1);
+                emissions[0].value = i;
+                emissions[0].date = timestamp + i as u64;
+
+                // Pause an asset
                 assert!(contract.pause(asset_id).is_ok());
+
+                // Blast child asset
                 assert!(contract
-                    .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
+                    .blast(
+                        asset_owner,
+                        metadata.clone(),
+                        emissions.clone(),
+                        parent.clone()
+                    )
                     .is_ok());
 
                 asset_id += 1;
@@ -2236,53 +2205,41 @@ mod asset_co2_emissions {
 
             let details_from_state = contract.query_emissions(asset_id);
 
+            // Check extended asset tree
             assert!(details_from_state.is_some());
-
             assert_eq!(expected_tree_path, details_from_state.unwrap());
         }
 
         #[ink::test]
         fn should_list_asset_for_empty_account_work_properly() {
-            let contract = InfinityAsset::new();
-            assert_eq!(
-                contract.list_assets(get_accounts().alice),
-                Vec::<AssetId>::new()
-            );
+            let (accounts, contract) = prepare_env();
+
+            // Check if contract return proper value for `query_emissions`
+            assert_eq!(contract.list_assets(accounts.alice), Vec::<AssetId>::new());
         }
 
         #[ink::test]
         fn should_list_asset_for_single_asset_work_properly() {
-            let accounts = get_accounts();
+            let ((_accounts, contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            blast_default_asset(&mut contract);
+            set_caller(asset_owner);
 
-            let asset_id: AssetId = 1;
-            let owner = accounts.eve;
-
-            set_caller(owner);
-
+            // Check if contract return proper value for `list_assets`
             assert_eq!(
                 Vec::<AssetId>::from([asset_id]),
-                contract.list_assets(owner)
+                contract.list_assets(asset_owner)
             );
         }
 
         #[ink::test]
         fn should_list_assets_for_many_assets_work_properly() {
-            let accounts = get_accounts();
+            let ((_accounts, mut contract), (mut asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-            let metadata: Metadata = Vec::from([0u8, 1u8, 2u8, 3u8]);
-
-            blast_default_asset(&mut contract);
-
-            let mut asset_id: AssetId = 1;
-            let owner = accounts.eve;
+            let metadata = default_metadata();
 
             let timestamp = 1_000_000_000u64;
 
-            set_caller(owner);
+            set_caller(asset_owner);
 
             // create long token tree path
             for i in 1..1_000 {
@@ -2290,50 +2247,45 @@ mod asset_co2_emissions {
                     parent_id: asset_id,
                     relation: (100 - (i % 100)),
                 });
-                let mut item = get_default_emission();
-                item.value = i;
-                item.date = timestamp + i as u64;
-                let emissions: Vec<CO2Emissions> = Vec::from([item]);
+                let mut emissions = new_emissions(1);
+                emissions[0].value = i;
+                emissions[0].date = timestamp + i as u64;
+                // Pause an asset
                 assert!(contract.pause(asset_id).is_ok());
+                // Blast a child
                 assert!(contract
-                    .blast(owner, metadata.clone(), emissions.clone(), parent)
+                    .blast(asset_owner, metadata.clone(), emissions.clone(), parent)
                     .is_ok());
 
                 asset_id += 1;
             }
 
-            let mut assets_from_state = contract.list_assets(owner);
+            let mut assets_from_state = contract.list_assets(asset_owner);
             assets_from_state.sort();
 
+            // Check if contract return proper value
             assert_eq!((1..1_001).collect::<Vec<AssetId>>(), assets_from_state);
         }
 
         #[ink::test]
         fn should_list_asset_after_transfer_work_properly() {
-            let accounts = get_accounts();
+            let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
-            let mut contract = InfinityAsset::new();
-
-            blast_default_asset(&mut contract);
-
-            let asset_id = 1;
-            let owner = accounts.eve;
             let new_owner = accounts.bob;
 
-            set_caller(owner);
+            set_caller(asset_owner);
 
-            assert_eq!(Vec::from([asset_id]), contract.list_assets(owner));
+            // Check owned assets before `transfer`
+            assert_eq!(Vec::from([asset_id]), contract.list_assets(asset_owner));
             assert_eq!(Vec::<AssetId>::new(), contract.list_assets(new_owner));
 
-            let emissions_value_1 = 100u128;
-            let mut new_emission_item = get_default_emission();
-            new_emission_item.value = emissions_value_1;
-
+            // Transfer asset
             assert!(contract
-                .transfer(new_owner, asset_id, Vec::from([new_emission_item]))
+                .transfer(new_owner, asset_id, new_emissions(1))
                 .is_ok());
 
-            assert_eq!(Vec::<AssetId>::new(), contract.list_assets(owner));
+            // Check owned assets after `transfer`
+            assert_eq!(Vec::<AssetId>::new(), contract.list_assets(asset_owner));
             assert_eq!(Vec::from([asset_id]), contract.list_assets(new_owner));
         }
     }
