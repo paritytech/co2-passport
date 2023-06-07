@@ -1033,7 +1033,7 @@ mod asset_co2_emissions {
             let emissions: Vec<CO2Emissions> = Vec::from([item]);
 
             assert!(contract
-                .blast(accounts.eve, metadata.clone(), emissions, parent)
+                .blast(accounts.eve, metadata, emissions, parent)
                 .is_ok());
         }
 
@@ -1355,7 +1355,7 @@ mod asset_co2_emissions {
                 owner,
                 parent,
             );
-            let e = item.clone();
+            let e = item;
             assert_emissions_event(
                 &emitted_events[1],
                 expected_asset_id,
@@ -2214,7 +2214,7 @@ mod asset_co2_emissions {
                     relation: (100 - (i % 100)),
                 });
                 let mut item = get_default_emission();
-                item.value = i as u128;
+                item.value = i;
                 item.date = timestamp + i as u64;
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
                 assert!(contract.pause(asset_id).is_ok());
@@ -2291,7 +2291,7 @@ mod asset_co2_emissions {
                     relation: (100 - (i % 100)),
                 });
                 let mut item = get_default_emission();
-                item.value = i as u128;
+                item.value = i;
                 item.date = timestamp + i as u64;
                 let emissions: Vec<CO2Emissions> = Vec::from([item]);
                 assert!(contract.pause(asset_id).is_ok());
