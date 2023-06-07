@@ -256,7 +256,7 @@ Given("The original contract is deployed", async function () {
 	await this.prepareEnvironment();
 });
 
-When("The contract owner updgrades the contract", async function () {
+When("The contract owner upgrades the contract", async function () {
 	const contract = JSON.parse(
 		fs.readFileSync(
 			"./integration-tests/updated-contract/target/ink/updated_contract.contract"

@@ -54,7 +54,7 @@ Feature: User Story 1
     }
     """
 
-  Scenario: Seller tranfers asset to Buyer
+  Scenario: Seller transfers asset to Buyer
     Given The "Seller" has blasted the asset with the following parameters:
     """
     {

@@ -5,6 +5,6 @@ Feature: User Story 3
   Scenario: Contract owner upgrades the contract
     Given The original contract is deployed
 
-    When The contract owner updgrades the contract
+    When The contract owner upgrades the contract
 
     Then The contract will be upgraded

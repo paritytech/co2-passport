@@ -315,10 +315,10 @@ class UserStoryWorld {
 			storageDeposit,
 		};
 
-		let pauseExtrinsic = this.contract.tx[message](txOptions, ...params);
+		let extrinsic = this.contract.tx[message](txOptions, ...params);
 
 		await new Promise((resolve) => {
-			this.signAndSend(sender, pauseExtrinsic, (result) => {
+			this.signAndSend(sender, extrinsic, (result) => {
 				this.events = this.getEvents(result);
 				resolve();
 			});
