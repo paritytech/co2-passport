@@ -11,30 +11,44 @@ const PROOF_SIZE = new BN(1_000_000);
 // Unlimited storage deposit
 const STORAGE_DEPOSIT_LIMIT = null;
 
-async function dryRun(contract, sender, message, ...params) {
+async function dryRun(contract, sender, message, txOptions, ...params) {
+	console.log(
+		"\n-------------------------------------------------------------------------------------------------"
+	);
+	console.log("Dry run for: { message:", message, " sender:", sender, "}");
+
 	const { gasRequired, storageDeposit, result, output } =
-		await contract.query[message](sender, ...params);
+		await contract.query[message](sender, txOptions, ...params);
 
 	// the gas consumed for contract execution
-	console.log(gasRequired.toJSON());
+	console.log("Gas Required:", gasRequired.toJSON());
 
-	console.log(storageDeposit.toJSON());
+	console.log("Storage Deposit:", storageDeposit.toJSON());
 
 	// check if the call was successful
 	if (result.isOk) {
-		// output the return value
-		console.log("Success!!! : ", output.toJSON().ok);
+		console.log("Success:", output.toJSON().ok);
+		await calculateFees(contract, sender, message, txOptions, ...params);
 	} else {
-		console.error("Error!!! : ", result.asErr.toJSON());
+		console.error("Error:", result.asErr.toJSON());
 	}
+}
+
+async function calculateFees(contract, sender, message, txOptions, ...params) {
+	let extrinsic = contract.tx[message](txOptions, ...params);
+	extrinsic
+		.paymentInfo(sender)
+		.then((result) =>
+			console.log("Expected txn fee:", result.partialFee.toHuman())
+		);
 }
 
 async function main() {
 	// Shibuya RPC
-	// const wsProvider = new WsProvider("wss://rpc.shibuya.astar.network");
+    const wsProvider = new WsProvider("wss://rpc.shibuya.astar.network");
 
 	// Rococo RPC
-	const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
+	// const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
 
 	// Local Node RPC
 	// const wsProvider = new WsProvider("ws://127.0.0.1:9944");
@@ -42,10 +56,10 @@ async function main() {
 	const api = await ApiPromise.create({ provider: wsProvider });
 
 	// Shibuya Contract Address
-	// const contractAddress = "Z9RhEdrpQVvfMRXVKaVb1tpxzZkKNBt5DeUxqgQ6BXtAvuY";
+    const contractAddress = "Z9RhEdrpQVvfMRXVKaVb1tpxzZkKNBt5DeUxqgQ6BXtAvuY";
 
 	// Rococo Contract Address
-	const contractAddress = "5HTY8YRLaLwhxzQPJACUiKYrceNCmrB1RgjPJgNDKn1qZp7b";
+	// const contractAddress = "5HTY8YRLaLwhxzQPJACUiKYrceNCmrB1RgjPJgNDKn1qZp7b";
 
 	// TODO set Local Node Contract Address Here
 	// Local Node Contract Address
@@ -67,10 +81,10 @@ async function main() {
 	};
 
 	// Shibuya Account Address
-	// const testingAddress = "aTpKaUyG6uFSNoctp96noX1WWQWsydJXf9p99VFaT26c9mW";
+    const testingAddress = "aTpKaUyG6uFSNoctp96noX1WWQWsydJXf9p99VFaT26c9mW";
 
 	// Rococo Account Address
-	const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
+	// const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
 
 	// Local Node Account Address
 	// const testingAddress = alice.address;
@@ -93,13 +107,6 @@ async function main() {
 
 	const assetParent = null;
 
-	await dryRun(
-		contract,
-		testingAddress,
-		"assetCO2Emissions::listAssets",
-		txOptions,
-		testingAddress
-	);
 	await dryRun(
 		contract,
 		testingAddress,
