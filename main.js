@@ -4,56 +4,56 @@ const { CodePromise, ContractPromise } = require("@polkadot/api-contract");
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { BN } = require("@polkadot/util");
 
-const { txPaymentInfo } = require("useink/core");
-const { formatBalance } = require('useink');
-
 // require uses the path relative to the file it is called from
 const CONTRACT_ABI = require("./target/ink/asset_co2_emissions.json");
 
 // Max gas limit
 const REF_TIME = new BN(300_000_000_000);
-const PROOF_SIZE = new BN(1000000);
-
+const PROOF_SIZE = new BN(1_000_000);
 // Unlimited storage deposit
 const STORAGE_DEPOSIT_LIMIT = null;
 
 async function dryRun(contract, sender, message, ...params) {
 	const { gasRequired, storageDeposit, result, output } =
-		await contract.query[message](
-			sender.address,
-			...params
-		);
+		await contract.query[message](sender.address, ...params);
 
 	// the gas consumed for contract execution
 	console.log(gasRequired.toJSON());
 
-    console.log(storageDeposit.toJSON());
+	console.log(storageDeposit.toJSON());
 
 	// check if the call was successful
 	if (result.isOk) {
 		// output the return value
-		// console.log("Success", output.toJSON().ok);
-    } else {
-        console.error("Error", result.asErr.toJSON());
+		console.log("Success!!! : ", output.toJSON().ok);
+	} else {
+		console.error("Error!!! : ", result.asErr.toJSON());
 	}
 }
 
 async function main() {
-    // Shibuya RPC
-    const wsProvider = new WsProvider("wss://rpc.shibuya.astar.network");
+	// Shibuya RPC
+	// const wsProvider = new WsProvider("wss://rpc.shibuya.astar.network");
 
-    // Rococo RPC
-    // const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
+	// Rococo RPC
+	// const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
 
-    const api = await ApiPromise.create({ provider: wsProvider });
+	// Local Node RPC
+	const wsProvider = new WsProvider("ws://127.0.0.1:9944");
 
-    // Shibuya Contract Address
-    const contractAddress = "Z9RhEdrpQVvfMRXVKaVb1tpxzZkKNBt5DeUxqgQ6BXtAvuY";
+	const api = await ApiPromise.create({ provider: wsProvider });
 
-    // Rococo Contract Address
-    // const contractAddress = "5DG8tf9FG5ZkfqPk9kXBfVtwcq1Aaevah71KTDTTY1eGijid";
-    
-    const contract = new ContractPromise(api, CONTRACT_ABI, contractAddress);
+	// Shibuya Contract Address
+	// const contractAddress = "Z9RhEdrpQVvfMRXVKaVb1tpxzZkKNBt5DeUxqgQ6BXtAvuY";
+
+	// Rococo Contract Address
+	// const contractAddress = "5HTY8YRLaLwhxzQPJACUiKYrceNCmrB1RgjPJgNDKn1qZp7b";
+
+	// TODO set Local Node Contract Address Here
+	// Local Node Contract Address
+	const contractAddress = "5Cip81QsAXC4iyW6V5NwDFnBHij3e9d5DqTW6AnZzdC9iWZG";
+
+	const contract = new ContractPromise(api, CONTRACT_ABI, contractAddress);
 
 	let keyring = new Keyring({ type: "sr25519" });
 	const alice = keyring.addFromUri("//Alice");
@@ -64,30 +64,49 @@ async function main() {
 			proofSize: PROOF_SIZE,
 		}),
 		STORAGE_DEPOSIT_LIMIT,
-    };
+	};
 
-    // Shibuya Address
-    const testingAddress = "aTpKaUyG6uFSNoctp96noX1WWQWsydJXf9p99VFaT26c9mW";
-    
-    // Rococo Address
-    // const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
+	// Shibuya Account Address
+	// const testingAddress = "aTpKaUyG6uFSNoctp96noX1WWQWsydJXf9p99VFaT26c9mW";
 
-    const message = "assetCO2Emissions::blast";
+	// Rococo Account Address
+	// const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
 
-    const assetOwner = "5CdTEjkVG3XKu77B5mGXBNk7fgj6GQF16WHHWF822pF18AMb";
-    const assetMetadata = "{\"weight\": 1000}";
-    const assetEmissions = [
-        {
-          "category": "Process",
-          "dataSource": "Nexigen",
-          "value": 12,
-          "balanced": true,
-          "date": 1686559847
-        }
-    ];
-    const assetParent = null;
+	// Local Node Account Address
+	const testingAddress = alice.address;
 
-	await dryRun(contract, testingAddress, message, txOptions, assetOwner, assetMetadata, assetEmissions, assetParent);
+	const message = "assetCO2Emissions::blast";
+
+	const assetOwner = testingAddress;
+	const assetMetadata = '{"weight": 1000}';
+	const assetEmissions = [
+		{
+			category: "Process",
+			dataSource: "Nexigen",
+			value: 12,
+			balanced: true,
+			date: 1686559847,
+		},
+	];
+	const assetParent = null;
+
+	await dryRun(
+		contract,
+		testingAddress,
+		"assetCO2Emissions::listAssets",
+		txOptions,
+		testingAddress
+	);
+	await dryRun(
+		contract,
+		testingAddress,
+		message,
+		txOptions,
+		assetOwner,
+		assetMetadata,
+		assetEmissions,
+		assetParent
+	);
 }
 
 main();

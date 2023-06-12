@@ -503,7 +503,7 @@
 
 "@talismn/connect-wallets@1.2.3":
   version "1.2.3"
-  resolved "https://registry.npmjs.org/@talismn/connect-wallets/-/connect-wallets-1.2.3.tgz"
+  resolved "https://registry.yarnpkg.com/@talismn/connect-wallets/-/connect-wallets-1.2.3.tgz#4aa91f2c554d692e9f49472f74dcc96fca319df5"
   integrity sha512-6hLYeDnMjrlsNLF6a9e7ngxKMkKW3uTC2IbBjtTPq9fxA1VvApmxR8egboPzU7sgFQEuUFP36KN1hFAtfRIVhw==
 
 "@types/bn.js@^5.1.1":
