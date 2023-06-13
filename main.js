@@ -34,10 +34,10 @@ async function main() {
 	// const wsProvider = new WsProvider("wss://rpc.shibuya.astar.network");
 
 	// Rococo RPC
-	// const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
+	const wsProvider = new WsProvider("wss://rococo-contracts-rpc.polkadot.io");
 
 	// Local Node RPC
-	const wsProvider = new WsProvider("ws://127.0.0.1:9944");
+	// const wsProvider = new WsProvider("ws://127.0.0.1:9944");
 
 	const api = await ApiPromise.create({ provider: wsProvider });
 
@@ -45,16 +45,17 @@ async function main() {
 	// const contractAddress = "Z9RhEdrpQVvfMRXVKaVb1tpxzZkKNBt5DeUxqgQ6BXtAvuY";
 
 	// Rococo Contract Address
-	// const contractAddress = "5HTY8YRLaLwhxzQPJACUiKYrceNCmrB1RgjPJgNDKn1qZp7b";
+	const contractAddress = "5HTY8YRLaLwhxzQPJACUiKYrceNCmrB1RgjPJgNDKn1qZp7b";
 
 	// TODO set Local Node Contract Address Here
 	// Local Node Contract Address
-	const contractAddress = "5Cip81QsAXC4iyW6V5NwDFnBHij3e9d5DqTW6AnZzdC9iWZG";
+	// const contractAddress = "5Cip81QsAXC4iyW6V5NwDFnBHij3e9d5DqTW6AnZzdC9iWZG";
 	// "5DG9oUoaWqnedg7dj964tVYHrUUsxL7C5nLoiUWTxSSitSig";
 
 	const contract = new ContractPromise(api, CONTRACT_ABI, contractAddress);
 
 	let keyring = new Keyring({ type: "sr25519" });
+	// eslint-disable-next-line  no-unused-vars
 	const alice = keyring.addFromUri("//Alice");
 
 	const txOptions = {
@@ -69,15 +70,17 @@ async function main() {
 	// const testingAddress = "aTpKaUyG6uFSNoctp96noX1WWQWsydJXf9p99VFaT26c9mW";
 
 	// Rococo Account Address
-	// const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
+	const testingAddress = "5GbDtHWtUsG9DYmnQWgym9MjRThPukvZWTefuSHPi62927YS";
 
 	// Local Node Account Address
-	const testingAddress = alice.address;
+	// const testingAddress = alice.address;
 
 	const message = "assetCO2Emissions::blast";
 
 	const assetOwner = testingAddress;
-	const assetMetadata = '{"weight": 1000}';
+	const assetMetadata =
+		'{"weight": 1666, "batch_id": "CXW123ABCF", "item_num": "CXW123ABCF", "certified": true, "scrap_percentage": 75, "renewable_energy_mix": [{"mix": 30, "source": "hydro"}]}';
+
 	const assetEmissions = [
 		{
 			category: "Process",
@@ -87,6 +90,7 @@ async function main() {
 			date: 1686559847,
 		},
 	];
+
 	const assetParent = null;
 
 	await dryRun(
