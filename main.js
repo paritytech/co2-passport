@@ -1,6 +1,4 @@
-const fs = require("fs");
-
-const { CodePromise, ContractPromise } = require("@polkadot/api-contract");
+const { ContractPromise } = require("@polkadot/api-contract");
 const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
 const { BN } = require("@polkadot/util");
 
@@ -15,7 +13,7 @@ const STORAGE_DEPOSIT_LIMIT = null;
 
 async function dryRun(contract, sender, message, ...params) {
 	const { gasRequired, storageDeposit, result, output } =
-		await contract.query[message](sender.address, ...params);
+		await contract.query[message](sender, ...params);
 
 	// the gas consumed for contract execution
 	console.log(gasRequired.toJSON());
@@ -52,6 +50,7 @@ async function main() {
 	// TODO set Local Node Contract Address Here
 	// Local Node Contract Address
 	const contractAddress = "5Cip81QsAXC4iyW6V5NwDFnBHij3e9d5DqTW6AnZzdC9iWZG";
+	// "5DG9oUoaWqnedg7dj964tVYHrUUsxL7C5nLoiUWTxSSitSig";
 
 	const contract = new ContractPromise(api, CONTRACT_ABI, contractAddress);
 
