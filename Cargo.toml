@@ -1,8 +1,8 @@
 [package]
 name = "asset_co2_emissions"
 version = "0.1.0"
-authors = ["Daniel Bigos <daniel.bigos@parity.io>"]
-edition = "2021"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "MIT"
 description = "Non-Fungible Assets with CO2 Emissions tracking."
 readme = "README.md"
 

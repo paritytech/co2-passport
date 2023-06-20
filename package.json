@@ -1,6 +1,7 @@
 {
 	"name": "bcg-co2-passports",
-	"version": "1.0.0",
+	"version": "0.1.0",
+    "license": "MIT",
 	"description": "",
 	"scripts": {
 		"test": "cargo contract build --release && (cd integration-tests/updated-contract && cargo contract build --release) && cucumber-js",
