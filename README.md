@@ -37,8 +37,8 @@ This contract supports the following operations:
 
 -   Updating contract.
 -   Blasting an Asset - creating a new Asset with the CO2 Emissions required.
--   Addinng additional CO2 Emissions to an Asset.
--   Transfering an Asset to a different account. Additional C02 Emissions always added.
+-   Adding additional CO2 Emissions to an Asset.
+-   Transferring an Asset to a different account. Additional C02 Emissions always added.
 -   Pausing an Asset to prevent transferring or adding new CO2 Emissions. This is a prerequisite to splitting an Asset.
 -   Splitting an Asset into child Assets. The common reasons is due to actions like steel cutting.
 -   Querying details about an Asset.
@@ -197,7 +197,7 @@ The following files describe the tests and user stories using [Gherkin Syntax](h
 The test implementations are found in:
 
 -   [features/support/steps.js](./features/support/steps.js): the test definitions using `Cucumber.js`.
--   [features/support/world.js](./features/support/world.js): the enviroment class used by the tests that manages interactions with Substrate and the contract.
+-   [features/support/world.js](./features/support/world.js): the environment class used by the tests that manages interactions with Substrate and the contract.
 
 ### Running Integration Tests
 
