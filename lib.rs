@@ -26,25 +26,8 @@ mod asset_co2_emissions {
     // CO2 Emissions Data Source represented by vector of bytes/characters.
     pub type DataSource = Vec<u8>;
 
-    // The relation type between a child and its parent.
-    pub type ParentRelation = u128;
-
     // Optional argument for referencing a parent asset that is split into child assets.
-    // The parent details transfer object.
-    pub type ParentDetails = Option<(AssetId, ParentRelation)>;
-
-    // Role identifier
-    pub type RoleId = AccountId;
-
-    // Role description represented by a vector of bytes/characters.
-    pub type Description = Vec<u8>;
-
-    #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub struct ParentDetailsDTO {
-        parent_id: AssetId,
-        relation: ParentRelation,
-    }
+    pub type ParentDetails = Option<AssetId>;
 
     // The type returned when querying for an Asset.
     #[derive(Debug, PartialEq, Clone, scale::Encode, scale::Decode)]
@@ -53,7 +36,7 @@ mod asset_co2_emissions {
         asset_id: AssetId,
         metadata: Metadata,
         emissions: Vec<CO2Emissions>,
-        parent: Option<ParentDetailsDTO>,
+        parent: ParentDetails,
     }
 
     #[derive(Copy, Clone, Debug, PartialEq, scale::Encode, scale::Decode)]
@@ -109,24 +92,8 @@ mod asset_co2_emissions {
         MetadataOverflow,
         // When the data source vector contains too many characters
         DataSourceOverflow,
-        // When a parent <> child Asset relation is equal to 0
-        InvalidAssetRelation,
         // When an Asset with ID already exists.
         AssetAlreadyExists,
-    }
-
-    /// The AccessControl error types.
-    #[derive(Debug, PartialEq, Eq, Copy, Clone, scale::Encode, scale::Decode)]
-    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub enum AccessControlError {
-        // When an access has been already granted to the account.
-        AlreadyGranted,
-        // When a Role is going to be empty (no members).
-        EmptyRole,
-        // When an account is not a member of a Role.
-        NotMember,
-        // When an account is not an owner of the Role.
-        NotOwner,
     }
 
     /// This emits when an Asset gets created.
@@ -136,7 +103,7 @@ mod asset_co2_emissions {
         id: AssetId,
         metadata: Metadata,
         owner: AccountId,
-        parent: Option<ParentDetailsDTO>,
+        parent: ParentDetails,
     }
 
     /// This emits when ownership of any Asset changes.
@@ -167,141 +134,6 @@ mod asset_co2_emissions {
         value: u128,
     }
 
-    /// This emits when a new Role gets created.
-    #[ink(event)]
-    pub struct RoleCreated {
-        #[ink(topic)]
-        id: RoleId,
-        owner: AccountId,
-        description: Description,
-    }
-
-    /// This emits when an owner of the Role has changed.
-    #[ink(event)]
-    pub struct RoleOwnershipChanged {
-        #[ink(topic)]
-        id: RoleId,
-        new_owner: AccountId,
-    }
-
-    /// This emits when a Role members have changed.
-    #[ink(event)]
-    pub struct RoleMembershipChanged {
-        #[ink(topic)]
-        id: RoleId,
-    }
-
-    #[ink::trait_definition]
-    pub trait AccessControl {
-        /// Function to create a new role.
-        ///
-        /// # Arguments
-        ///
-        /// * `description` - Additional role description.
-        /// * `accounts` - Vector of accounts that are members of the role.
-        ///
-        /// # Errors
-        ///
-        /// * `EmptyRole` - Account list cannot be empty.
-        ///
-        /// # Events
-        ///
-        /// * `RoleCreated` - When a role gets created.
-        ///
-        #[ink(message)]
-        fn create_role(
-            &mut self,
-            description: Description,
-            accounts: Vec<AccountId>,
-        ) -> Result<(), AccessControlError>;
-
-        /// Transfer ownership of a role to another address.
-        ///
-        /// # Arguments
-        ///
-        /// * `role` - The Role id.
-        /// * `to` - Address of the new owner.
-        ///
-        /// # Errors
-        ///
-        /// * `NotOwner` - When transaction sender is not the current role owner.
-        ///
-        /// # Events
-        ///
-        /// * `RoleOwnershipChanged` - When role ownership gets changed.
-        #[ink(message)]
-        fn transfer_role_ownership(
-            &mut self,
-            role: RoleId,
-            to: AccountId,
-        ) -> Result<(), AccessControlError>;
-
-        /// Grant a role to an account.
-        ///
-        /// # Arguments
-        ///
-        /// * `role` - The Role id.
-        /// * `account` - The account to be granted.
-        ///
-        /// # Errors
-        ///
-        /// * `NotOwner` - When transaction sender is not the current role owner.
-        /// * `Already granted` - When the account is already role member.
-        ///
-        /// # Events
-        ///
-        /// * `RoleMembershipChanged`- When role membership gets changed.
-        ///
-        #[ink(message)]
-        fn grant_role(
-            &mut self,
-            role: RoleId,
-            account: AccountId,
-        ) -> Result<(), AccessControlError>;
-
-        /// Revoke a role from an account.
-        ///
-        /// # Arguments
-        /// * `role` - The Role id.
-        /// * `account` - The account to be revoked.
-        ///
-        /// # Errors
-        ///
-        /// * `NotOwner` - When transaction sender is not the current role owner.
-        /// * `Already granted` - When the account is already role member.
-        /// * `EmptyRole` - Account list cannot be empty.
-        ///
-        /// # Events
-        ///
-        /// * `RoleMembershipChanged`- When role membership gets changed.
-        ///
-        #[ink(message)]
-        fn revoke_role(
-            &mut self,
-            role: RoleId,
-            account: AccountId,
-        ) -> Result<(), AccessControlError>;
-
-        /// Checks if an account is a role member.
-        ///
-        /// # Arguments
-        ///
-        /// * `role` - The Role id.
-        /// * `account` - The account id.
-        ///
-        #[ink(message)]
-        fn has_role(&self, role: RoleId, account: AccountId) -> bool;
-
-        /// Get role details.
-        ///
-        /// # Arguments
-        ///
-        /// * `role` - The Role id.
-        ///
-        #[ink(message)]
-        fn get_role(&self, role: RoleId) -> Option<(Description, Vec<AccountId>)>;
-    }
-
     #[ink::trait_definition]
     pub trait AssetCO2Emissions {
         /// List all Assets assigned to an owner.
@@ -329,9 +161,7 @@ mod asset_co2_emissions {
         /// * `to` - The account that will own the Asset.
         /// * `metadata` - Immutable asset's metadata (physical details of steel); Can be a string, a JSON string or a link to IPFS.
         /// * `emissions` - CO2 emissions during asset creation (like blasting or splitting steel).
-        /// * `parent` - Information about asset creation from the existing Asset (in the case of e.g. splitting steel):
-        ///                 - identifier of the Asset's parent
-        ///                 - information about relation (parent's quantity used) for external systems.
+        /// * `parent` - Information about asset creation from the existing Asset (in the case of e.g. splitting steel) - identifier of the Asset's parent
         ///
         /// # Errors
         ///
@@ -349,7 +179,7 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: Option<ParentDetailsDTO>,
+            parent: ParentDetails,
         ) -> Result<(), AssetCO2EmissionsError>;
 
         /// Transfers the ownership of an Asset to another account
@@ -457,7 +287,7 @@ mod asset_co2_emissions {
         /// * `id` - The Asset id.
         ///
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO>;
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails>;
 
         /// Get asset details.
         ///
@@ -646,12 +476,8 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             match parent {
                 None => Ok(()),
-                Some((parent_id, relation)) => {
+                Some(parent_id) => {
                     self.ensure_owner(parent_id, caller)?;
-                    match relation {
-                        0 => Err(AssetCO2EmissionsError::InvalidAssetRelation),
-                        _ => Ok(()),
-                    }?;
                     self.ensure_paused(parent_id)
                 }
             }
@@ -788,7 +614,7 @@ mod asset_co2_emissions {
                 tree_path.push(asset);
                 match parent_details {
                     None => break,
-                    Some(ParentDetailsDTO { parent_id, .. }) => asset_id = parent_id,
+                    Some(parent_id) => asset_id = parent_id,
                 }
             }
 
@@ -816,17 +642,13 @@ mod asset_co2_emissions {
             to: AccountId,
             metadata: Metadata,
             emissions: Vec<CO2Emissions>,
-            parent: Option<ParentDetailsDTO>,
+            parent: ParentDetails,
         ) -> Result<(), AssetCO2EmissionsError> {
             let caller = self.env().caller();
 
-            let parent_details: ParentDetails = parent
-                .clone()
-                .map(|parent| (parent.parent_id, parent.relation));
-
             self.ensure_proper_metadata(&metadata)?;
             self.ensure_emissions_correct(&emissions)?;
-            self.ensure_proper_parent(&parent_details, &caller)?;
+            self.ensure_proper_parent(&parent, &caller)?;
 
             let asset_id: u128 = self.next_id()?;
             self.ensure_not_exist(&asset_id)?;
@@ -836,7 +658,7 @@ mod asset_co2_emissions {
             self.asset_owner.insert(asset_id, &to);
             self.metadata.insert(asset_id, &metadata);
             self.paused.insert(asset_id, &false);
-            self.parent.insert(asset_id, &parent_details);
+            self.parent.insert(asset_id, &parent);
 
             self.env().emit_event(Blasted {
                 id: asset_id,
@@ -921,13 +743,8 @@ mod asset_co2_emissions {
         }
 
         #[ink(message)]
-        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetailsDTO> {
-            let parent = self.parent.get(id).unwrap_or(None);
-
-            parent.map(|(parent_id, relation)| ParentDetailsDTO {
-                parent_id,
-                relation,
-            })
+        fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails> {
+            self.parent.get(id)
         }
 
         #[ink(message)]
@@ -938,7 +755,9 @@ mod asset_co2_emissions {
                 // Asset must exist, fetch and unpack attributes
                 Some(metadata) => {
                     let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
-                    let parent = self.get_parent_details(id);
+                    let parent = self
+                        .get_parent_details(id)
+                        .expect("Parent Details must exist");
 
                     Some(AssetDetails {
                         asset_id: id,
@@ -1115,7 +934,7 @@ mod asset_co2_emissions {
             expected_id: AssetId,
             expected_metadata: Metadata,
             expected_owner: AccountId,
-            expected_parent: Option<ParentDetailsDTO>,
+            expected_parent: ParentDetails,
         ) {
             let decoded_event = <Event as scale::Decode>::decode(&mut &event.data[..])
                 .expect("Encountered invalid contract event data buffer");
@@ -1534,8 +1353,8 @@ mod asset_co2_emissions {
             let parent_from_state = contract.get_parent_details(asset_id);
 
             // Check if contract return proper asset's parent
-            assert!(parent_from_state.is_none());
-            assert_eq!(parent, parent_from_state);
+            assert!(parent_from_state.is_some());
+            assert_eq!(parent, parent_from_state.unwrap());
         }
 
         #[ink::test]
@@ -1620,10 +1439,7 @@ mod asset_co2_emissions {
 
             let owner = accounts.alice;
 
-            let parent = Some(ParentDetailsDTO {
-                parent_id: 1000,
-                relation: 85,
-            });
+            let parent: ParentDetails = Some(1000);
 
             set_caller(owner);
 
@@ -1636,40 +1452,13 @@ mod asset_co2_emissions {
         }
 
         #[ink::test]
-        fn should_reject_0_parent_relation_in_blast() {
-            let ((_accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
-
-            set_caller(asset_owner);
-
-            // Pause an asset
-            assert!(contract.pause(asset_id).is_ok());
-
-            let parent = Some(ParentDetailsDTO {
-                parent_id: asset_id,
-                relation: 0,
-            });
-            let metadata = default_metadata();
-            let emissions = new_emissions(1);
-
-            // Check if proper error is returned
-            // While trying to blast child asset with invalid relation value
-            assert_eq!(
-                contract.blast(asset_owner, metadata, emissions, parent),
-                Err(AssetCO2EmissionsError::InvalidAssetRelation)
-            );
-        }
-
-        #[ink::test]
         fn should_reject_not_owner_creating_child_in_blast() {
             let ((accounts, mut contract), (asset_id, asset_owner)) = env_with_default_asset();
 
             let emissions = new_emissions(1);
             let metadata = default_metadata();
 
-            let parent = Some(ParentDetailsDTO {
-                parent_id: asset_id,
-                relation: 101,
-            });
+            let parent: ParentDetails = Some(asset_id);
 
             set_caller(accounts.alice);
 
@@ -1690,10 +1479,7 @@ mod asset_co2_emissions {
 
             set_caller(asset_owner);
 
-            let parent = Some(ParentDetailsDTO {
-                parent_id: asset_id,
-                relation: 90,
-            });
+            let parent: ParentDetails = Some(asset_id);
 
             // Check if proper error is returned
             // While trying to blast a child asset for not paused parent
@@ -1711,10 +1497,7 @@ mod asset_co2_emissions {
 
             let metadata = default_metadata();
             let emissions = new_emissions(1);
-            let parent = Some(ParentDetailsDTO {
-                parent_id: asset_id,
-                relation: 100,
-            });
+            let parent: ParentDetails = Some(asset_id);
 
             // Pause parent asset
             assert!(contract.pause(asset_id).is_ok());
@@ -1760,7 +1543,7 @@ mod asset_co2_emissions {
             // Check child asset's parent
             let parent_from_state = contract.get_parent_details(expected_asset_id);
             assert!(parent_from_state.is_some());
-            assert_eq!(parent, parent_from_state);
+            assert_eq!(parent, parent_from_state.unwrap());
         }
 
         #[ink::test]
@@ -2169,10 +1952,7 @@ mod asset_co2_emissions {
             set_caller(asset_owner);
             // create long token tree path
             for i in 1..1_000 {
-                let parent = Some(ParentDetailsDTO {
-                    parent_id: asset_id,
-                    relation: (100 - (i % 100)),
-                });
+                let parent: ParentDetails = Some(asset_id);
 
                 let mut emissions = new_emissions(1);
                 emissions[0].value = i;
@@ -2243,13 +2023,11 @@ mod asset_co2_emissions {
 
             // create long token tree path
             for i in 1..1_000 {
-                let parent = Some(ParentDetailsDTO {
-                    parent_id: asset_id,
-                    relation: (100 - (i % 100)),
-                });
+                let parent: ParentDetails = Some(asset_id);
                 let mut emissions = new_emissions(1);
                 emissions[0].value = i;
                 emissions[0].date = timestamp + i as u64;
+
                 // Pause an asset
                 assert!(contract.pause(asset_id).is_ok());
                 // Blast a child
