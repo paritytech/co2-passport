@@ -1,6 +1,5 @@
 const { Given, When, Then } = require("cucumber");
 const { expect } = require("chai");
-const { hexToString } = require("@polkadot/util");
 const fs = require("fs");
 
 /* User Story 1 (us1) */
@@ -143,7 +142,7 @@ When(
 		err = await this.blastAsset(
 			caller,
 			JSON.stringify(assets[0].metadata),
-			[assetId, 25],
+			assetId,
 			[
 				{
 					category: "Upstream",
@@ -196,11 +195,12 @@ When(
 	}
 );
 Then(
-	"The emissions can be calculated offchain for {string} emissions between the dates {int} and {int} with the total equal to {float} based on the following:",
+	"The emissions can be calculated offchain for {string} emissions between the dates {int} and {int} and weight {int} with the total equal to {float} based on the following:",
 	function (
 		filterCategory,
 		filterDateFrom,
 		filterDateTo,
+		weight,
 		expectedEmissions,
 		docString
 	) {
@@ -210,16 +210,14 @@ Then(
 		// let e_n = the emissions of the asset at the nth level
 		// let w_n = the weight of the asset at nth level
 		// let Te_n = the total emissions of the asset at the nth level
-		// Te_0 = e_0
-		// Te_1 = (w_1 / w_0) * Te_0 + e_1
-		// Te_2 = (w_2 / w_1) * Te_1 + e_2
+		// Te_0 = e_0 * w_0
+		// Te_1 = e_1 * w_1 + Te_0
+		// Te_2 = e_2 * w_2 + Te_1 + Te_2
 		// ...
-		// Te_n = (w_n / w_n-1) * Te_n-1 + e_n
+		// Te_n = e_n * w_n + Te_n-1 + Te_n-2 + ... + Te_0
 
 		let totalEmissions = 0;
-		let prevWeight = 0;
 		for (let asset of this.readOutput.reverse()) {
-			let metadata = JSON.parse(hexToString(asset.metadata));
 			let emissions = asset.emissions;
 
 			// Calculate total emissions for the current asset.
@@ -233,18 +231,12 @@ Then(
 						emission.category === filterCategory
 					);
 				})
-				.reduce((total, emission) => total + emission.value, 0);
+				.reduce(
+					(total, emission) => total + emission.value * weight,
+					0
+				);
 
-			// base case
-			if (asset.parent === null) {
-				totalEmissions = totalAssetEmissions;
-				prevWeight = metadata.weight;
-				continue;
-			}
-			// ratio / relation of child from parent
-			let r = metadata.weight / prevWeight;
-			totalEmissions = r * totalEmissions + totalAssetEmissions;
-			prevWeight = metadata.weight;
+			totalEmissions = totalEmissions + totalAssetEmissions;
 		}
 
 		expect(totalEmissions).to.equal(expectedEmissions);

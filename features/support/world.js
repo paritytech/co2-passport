@@ -219,7 +219,7 @@ class UserStoryWorld {
 			let parentId = i + start;
 
 			if (parentId > 0) {
-				assetParent = [parentId, asset.metadata.weight];
+				assetParent = parentId;
 				// pause the parent asset
 				await this.pauseAsset(caller, parentId);
 			}

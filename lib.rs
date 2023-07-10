@@ -610,7 +610,7 @@ mod asset_co2_emissions {
                 let asset: AssetDetails = self
                     .get_asset(asset_id)
                     .expect("Asset existence already checked");
-                let parent_details = asset.parent.clone();
+                let parent_details = asset.parent;
                 tree_path.push(asset);
                 match parent_details {
                     None => break,
@@ -1201,7 +1201,7 @@ mod asset_co2_emissions {
 
             // Check if asset is blasted
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
+                .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1247,7 +1247,7 @@ mod asset_co2_emissions {
 
             // Check if asset is blasted
             assert!(contract
-                .blast(owner, metadata.clone(), emissions.clone(), parent.clone())
+                .blast(owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
             let expected_asset_id = 1;
@@ -1504,12 +1504,7 @@ mod asset_co2_emissions {
 
             // Blast child asset
             assert!(contract
-                .blast(
-                    asset_owner,
-                    metadata.clone(),
-                    emissions.clone(),
-                    parent.clone()
-                )
+                .blast(asset_owner, metadata.clone(), emissions.clone(), parent)
                 .is_ok());
 
             let expected_asset_id = 2;
@@ -1526,7 +1521,7 @@ mod asset_co2_emissions {
                 expected_asset_id,
                 metadata,
                 asset_owner,
-                parent.clone(),
+                parent,
             );
 
             // Check Emission event for already blasted child asset
@@ -1963,12 +1958,7 @@ mod asset_co2_emissions {
 
                 // Blast child asset
                 assert!(contract
-                    .blast(
-                        asset_owner,
-                        metadata.clone(),
-                        emissions.clone(),
-                        parent.clone()
-                    )
+                    .blast(asset_owner, metadata.clone(), emissions.clone(), parent)
                     .is_ok());
 
                 asset_id += 1;

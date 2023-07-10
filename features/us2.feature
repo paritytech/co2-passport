@@ -72,7 +72,7 @@ Feature: User Story 2
 
     When "Buyer" performs a query on the asset with ID 4
 
-    Then The emissions can be calculated offchain for "Upstream" emissions between the dates 1700000000 and 1900000000 with the total equal to 6 based on the following:
+    Then The emissions can be calculated offchain for "Upstream" emissions between the dates 1700000000 and 1900000000 and weight 100 with the total equal to 1500 based on the following:
     """
     [
       {
@@ -87,10 +87,7 @@ Feature: User Story 2
             "date": 1765040054
           }
         ],
-        "parent": {
-          "parentId": 3,
-          "relation": 15
-        }
+        "parent": 3
       },
       {
         "assetId": 3,
@@ -111,10 +108,7 @@ Feature: User Story 2
             "date": 1755040054
           }
         ],
-        "parent": {
-          "parentId": 2,
-          "relation": 25
-        }
+        "parent": 2
       },
       {
         "assetId": 2,
@@ -128,10 +122,7 @@ Feature: User Story 2
             "date": 1705040054
           }
         ],
-        "parent": {
-          "parentId": 1,
-          "relation": 50
-        }
+        "parent": 1
       },
       {
         "assetId": 1,
