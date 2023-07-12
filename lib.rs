@@ -10,14 +10,13 @@ mod asset_co2_emissions {
     // Max size of the Metadata vector.
     pub const MAX_METADATA_LENGTH: u16 = 1024; // 1KB
 
-    // Max emissions per asset
+    // Max CO2 Emissions per Asset.
     pub const MAX_EMISSIONS_PER_ASSET: u8 = 100;
 
-    // Max size of DataSource
+    // Max size of DataSource for CO2 Emission record.
     pub const MAX_DATA_SOURCE_LENGTH: u8 = 128;
 
     /// Asset ID type.
-    // TODO proper ID type
     pub type AssetId = u128;
 
     // Metadata represented by a vector of bytes/characters.
@@ -52,13 +51,13 @@ mod asset_co2_emissions {
     pub struct CO2Emissions {
         // Type of CO2 Emissions (bucket).
         category: EmissionsCategory,
-        // Emissions source of data
+        // Emissions source of data.
         data_source: DataSource,
-        // If CO2 Emissions are balanced (per record).
+        // If CO2 Emissions item is balanced (per record).
         balanced: bool,
-        // Emissions in kg CO2 (to avoid fractions).
+        // CO2 Emissions in kg CO2 (to avoid fractions).
         value: u128,
-        // Real CO2 emissions date as UNIX timestamp, not block creation time.
+        // Real CO2 Emissions date as UNIX timestamp, not block creation time.
         date: u64,
     }
 
@@ -74,7 +73,7 @@ mod asset_co2_emissions {
         AlreadyPaused,
         // When not an Asset's Owner wants to take any action over the Asset.
         NotOwner,
-        // When the calling account is not the owner of the contract
+        // When the calling account is not the owner of the contract.
         NotContractOwner,
         // When an Asset is not in a `Paused` state.
         NotPaused,
@@ -84,13 +83,13 @@ mod asset_co2_emissions {
         ParentNotPaused,
         // When CO2 Emissions vector is empty.
         EmissionsEmpty,
-        // Too many emissions in vector
+        // Too many CO2 Emissions in vector.
         EmissionsOverflow,
         // When CO2 Emissions item contains 0 emissions value.
         ZeroEmissionsItem,
-        // When the Metadata vector contains too many characters
+        // When the Metadata vector contains too many characters.
         MetadataOverflow,
-        // When the data source vector contains too many characters
+        // When the data source vector contains too many characters.
         DataSourceOverflow,
         // When an Asset with ID already exists.
         AssetAlreadyExists,
@@ -122,7 +121,7 @@ mod asset_co2_emissions {
         id: AssetId,
     }
 
-    /// This emits when CO2 emission is added.
+    /// This emits when CO2 Emission is added.
     #[ink(event)]
     pub struct Emission {
         #[ink(topic)]
@@ -138,6 +137,8 @@ mod asset_co2_emissions {
     pub trait AssetCO2Emissions {
         /// List all Assets assigned to an owner.
         ///
+        /// Returns empty vector if an account does not own any Assets.
+        ///
         /// # Arguments
         ///
         /// * `owner` - An account for whom to query assets.
@@ -146,6 +147,8 @@ mod asset_co2_emissions {
         fn list_assets(&self, owner: AccountId) -> Vec<AssetId>;
 
         /// Find the owner of an Asset.
+        ///
+        /// Returns None if Asset does not exist.
         ///
         /// # Arguments
         ///
@@ -159,19 +162,26 @@ mod asset_co2_emissions {
         /// # Arguments
         ///
         /// * `to` - The account that will own the Asset.
-        /// * `metadata` - Immutable asset's metadata (physical details of steel); Can be a string, a JSON string or a link to IPFS.
-        /// * `emissions` - CO2 emissions during asset creation (like blasting or splitting steel).
-        /// * `parent` - Information about asset creation from the existing Asset (in the case of e.g. splitting steel) - identifier of the Asset's parent
+        /// * `metadata` - Immutable Asset's metadata (physical details of steel); Can be a string, a JSON string or a link to IPFS.
+        /// * `emissions` - CO2 Emissions during asset creation (like blasting or splitting).
+        /// * `parent` - Information about asset creation from the existing Asset (in the case of e.g. splitting) - identifier of the Asset's parent
         ///
         /// # Errors
         ///
+        /// * `AssetAlreadyExists` - When Asset already exists.
         /// * `AssetNotFound` - When the Asset's parent does not exist.
+        /// * `DataSourceOverflow` - When Data Source for any of CO2 Emission items exceeds maximum length.
+        /// * `EmissionsEmpty` - When list of CO2 Emissions is empty.
+        /// * `EmissionsOverflow` - When list of CO2 Emissions exceeds maximum length.
+        /// * `MetadataOverflow` - When Metadata exceeds maximum length.
         /// * `NotPaused`- When Asset's parent is not paused.
+        /// * `NotOwner` - When action executor is not a parent Asset owner.
+        /// * `ZeroEmissionsItem` When emission value for any of CO2 Emission items is equal to Zero.
         ///
         /// # Events
         ///
         /// * `Blasted` - When an Asset gets blasted.
-        /// * `Emissions` - When CO2 emissions are added.
+        /// * `Emissions` - When CO2 Emissions are added. Emitted per each CO2 Emission item.
         ///
         #[ink(message)]
         fn blast(
@@ -188,18 +198,22 @@ mod asset_co2_emissions {
         ///
         /// * `to` - The new owner
         /// * `id` - The Asset to be transferred
-        /// * `emissions` - CO2 emission caused by the Asset transfer
+        /// * `emissions` - CO2 Emissions caused by the Asset transfer
         ///
         /// # Errors
         ///
-        /// * `AssetNotFound` - When the Asset does not exist.
-        /// * `NotOwner` - When transaction sender is not an owner.
         /// * `AlreadyPaused` - When the Asset is paused.
+        /// * `AssetNotFound` - When the Asset does not exist.
+        /// * `DataSourceOverflow` - When Data Source for any of CO2 Emission items exceeds maximum length.
+        /// * `EmissionsEmpty` - When list of CO2 Emissions is empty.
+        /// * `EmissionsOverflow` - When list of CO2 Emissions exceeds maximum length.
+        /// * `NotOwner` - When transaction sender is not an owner.
+        /// * `ZeroEmissionsItem` When emission value for any of CO2 Emission items is equal to Zero.
         ///
         /// # Events
         ///
         /// * `Transfer` - When Asset gets transferred.
-        /// * `Emissions` - When CO2 emissions are added.
+        /// * `Emissions` - When CO2 Emissions are added. Emitted per each CO2 Emission item.
         ///
         #[ink(message)]
         fn transfer(
@@ -219,8 +233,8 @@ mod asset_co2_emissions {
         ///
         /// # Errors
         ///
-        /// * `AssetNotFound` - When the Asset does not exist.
         /// * `AlreadyPaused` - When the Asset is already paused.
+        /// * `AssetNotFound` - When the Asset does not exist.
         /// * `NotOwner` - When transaction sender is not an owner.
         ///
         /// # Events
@@ -231,6 +245,8 @@ mod asset_co2_emissions {
 
         /// Query if an Asset is paused.
         ///
+        /// Returns None if Asset does not exist.
+        ///
         /// # Arguments
         ///
         /// * `id` - The Asset id.
@@ -240,6 +256,7 @@ mod asset_co2_emissions {
 
         /// Add CO2 emissions to an Asset.
         ///
+        ///
         /// # Arguments
         ///
         /// * `id` - The Asset id.
@@ -247,13 +264,15 @@ mod asset_co2_emissions {
         ///
         /// # Errors
         ///
-        /// * `AssetNotFound` - When the Asset does not exist.
-        /// * `NotOwner` - When transaction sender is not an owner.
         /// * `AlreadyPaused` - When asset is paused.
+        /// * `AssetNotFound` - When the Asset does not exist.
+        /// * `EmissionsOverflow` - When list of CO2 Emissions exceeds maximum length.
+        /// * `NotOwner` - When transaction sender is not an owner.
+        /// * `ZeroEmissionsItem` When emission value for any of CO2 Emission items is equal to Zero.
         ///
         /// # Events
         ///
-        /// * `Emissions` - When CO2 emissions are added.
+        /// * `Emissions` - When CO2 Emissions are added.
         ///
         #[ink(message)]
         fn add_emissions(
@@ -262,7 +281,9 @@ mod asset_co2_emissions {
             emissions: CO2Emissions,
         ) -> Result<(), AssetCO2EmissionsError>;
 
-        /// Get specified Asset's CO2 emissions.
+        /// Get specified Asset's CO2 Emissions.
+        ///
+        /// Returns None is Asset does not exist.
         ///
         /// # Arguments
         ///
@@ -273,6 +294,8 @@ mod asset_co2_emissions {
 
         /// Get specified Asset's metadata.
         ///
+        /// Returns None is Asset does not exist.
+        ///
         /// # Arguments
         ///
         /// * `id` - The Asset id.
@@ -282,6 +305,8 @@ mod asset_co2_emissions {
 
         /// Get Asset's parent.
         ///
+        /// Returns None is Asset does not exist.
+        ///
         /// # Arguments
         ///
         /// * `id` - The Asset id.
@@ -289,7 +314,9 @@ mod asset_co2_emissions {
         #[ink(message)]
         fn get_parent_details(&self, id: AssetId) -> Option<ParentDetails>;
 
-        /// Get asset details.
+        /// Get Asset details.
+        ///
+        /// Returns None is Asset does not exist.
         ///
         /// # Arguments
         ///
@@ -299,8 +326,10 @@ mod asset_co2_emissions {
         fn get_asset(&self, id: AssetId) -> Option<AssetDetails>;
 
         /// Query Asset's emissions.
-        /// This function returns CO2 emissions not only from specified Asset but also its parents.
+        /// This function returns CO2 Emissions not only from specified Asset but also its parents.
         /// It returns full Asset's history from the Asset's tree.
+        ///
+        /// Returns None is Asset does not exist.
         ///
         /// # Arguments
         ///
@@ -312,21 +341,21 @@ mod asset_co2_emissions {
 
     #[ink(storage)]
     pub struct InfinityAsset {
-        // privileged contract owner
+        // Privileged contract owner.
         contract_owner: AccountId,
-        // the next asset id to assign
+        // The next Asset id to assign.
         next_id: AssetId,
-        // mapping asset id to its owner
+        // Mapping Asset id to its owner.
         asset_owner: Mapping<AssetId, AccountId>,
-        // mapping to find what assets an account has
+        // Mapping to find what Assets an account has.
         owned_assets: BTreeMap<AccountId, BTreeSet<AssetId>>,
-        // emissions of an asset
+        // CO2 Emissions of an Asset.
         co2_emissions: Mapping<AssetId, Vec<CO2Emissions>>,
-        // metadata of an asset
+        // Metadata of an Asset.
         metadata: Mapping<AssetId, Metadata>,
-        // what assets are paused
+        // What Assets are paused.
         paused: Mapping<AssetId, bool>,
-        // child asset's parent
+        // Child Asset's parent.
         parent: Mapping<AssetId, ParentDetails>,
     }
 
@@ -337,6 +366,7 @@ mod asset_co2_emissions {
     }
 
     impl InfinityAsset {
+        /// Default constructor for the Smart Contract instance.
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
@@ -351,19 +381,35 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Sets the new contract owner. Must be called by current contract owner
+        /// Sets the new smart contract owner.
+        /// Must be called by current contract owner.
+        ///
+        /// # Arguments
+        ///
+        /// * `new_owner` - The new owner of the smart contract.
+        ///
+        /// # Errors
+        ///
+        /// * `NotContractOwner` - When action triggered by not the current owner.
+        ///
         #[ink(message)]
         pub fn set_contract_owner(
             &mut self,
             new_owner: AccountId,
         ) -> Result<(), AssetCO2EmissionsError> {
-            // Only the owner of the contract may set the new owner
+            // Only the owner of the contract may set the new owner.
             self.ensure_contract_owner(self.env().caller())?;
             self.contract_owner = new_owner;
             Ok(())
         }
 
         /// Modifies the code which is used to execute calls to this contract address (`AccountId`).
+        /// Must be called by current contract owner.
+        ///
+        /// # Arguments
+        ///
+        /// * `code_hash` - Hash of the new smart contract's code.
+        ///
         #[ink(message)]
         pub fn set_code(&mut self, code_hash: [u8; 32]) {
             self.ensure_contract_owner(self.env().caller())
@@ -375,7 +421,7 @@ mod asset_co2_emissions {
             ink::env::debug_println!("Switched code hash to {:?}.", code_hash);
         }
 
-        /// Insert new asset in the assets of `owner`
+        /// Insert new Asset in the Assets of `owner`.
         fn insert_owned_asset(
             &mut self,
             owner: &AccountId,
@@ -386,16 +432,15 @@ mod asset_co2_emissions {
                     let mut new_owned_assets = BTreeSet::new();
                     new_owned_assets.insert(*asset_id);
                     self.owned_assets.insert(*owner, new_owned_assets);
-                    Ok(())
                 }
                 Some(owned_assets) => {
                     owned_assets.insert(*asset_id);
-                    Ok(())
                 }
             }
+            Ok(())
         }
 
-        /// Remove asset from the assets of `owner`
+        /// Remove Asset from the Assets of `owner`.
         fn remove_owned_asset(
             &mut self,
             owner: &AccountId,
@@ -403,12 +448,12 @@ mod asset_co2_emissions {
         ) -> Result<(), AssetCO2EmissionsError> {
             self.owned_assets
                 .get_mut(owner)
-                .expect("Owned assets must exist when removing during asset transfer")
+                .expect("Owned assets must exist when removing during Asset transfer")
                 .remove(asset_id);
             Ok(())
         }
 
-        /// Ensure that asset does not exist.
+        /// Ensure that Asset does not exist.
         fn ensure_not_exist(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
             match self.asset_owner.contains(id) {
                 false => Ok(()),
@@ -416,7 +461,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure asset does exist
+        /// Ensure that Asset does exist.
         fn ensure_exists(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
             match self.asset_owner.contains(id) {
                 true => Ok(()),
@@ -424,7 +469,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure the calling origin is the contract owner
+        /// Ensure the calling origin is the contract owner.
         fn ensure_contract_owner(&self, caller: AccountId) -> Result<(), AssetCO2EmissionsError> {
             match caller.eq(&self.contract_owner) {
                 true => Ok(()),
@@ -432,7 +477,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure the calling origin is the asset owner
+        /// Ensure the calling origin is the Asset owner.
         fn ensure_owner(
             &self,
             id: &AssetId,
@@ -450,7 +495,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure the asset is `Paused`
+        /// Ensure the Asset is `Paused`.
         fn ensure_paused(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
             match self.has_paused(*id) {
                 None => Err(AssetCO2EmissionsError::AssetNotFound),
@@ -459,7 +504,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure the asset is not `Paused`
+        /// Ensure the Asset is not `Paused`.
         fn ensure_not_paused(&self, id: &AssetId) -> Result<(), AssetCO2EmissionsError> {
             match self.has_paused(*id) {
                 None => Err(AssetCO2EmissionsError::AssetNotFound),
@@ -468,7 +513,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure the parent details of child asset are correct
+        /// Ensure the parent details of child Asset are correct.
         fn ensure_proper_parent(
             &self,
             parent: &ParentDetails,
@@ -483,22 +528,33 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure emissions are correct: not empty, not unbounded, and all items are correct
+        /// Ensure that CO2 Emissions are correct: not empty, not unbounded, and all items are correct.
         fn ensure_emissions_correct(
             &self,
+            asset: Option<AssetId>,
             emissions: &Vec<CO2Emissions>,
         ) -> Result<(), AssetCO2EmissionsError> {
             self.ensure_emissions_not_empty(emissions)?;
             self.ensure_emissions_not_unbounded(emissions)?;
 
-            // ensure all emissions items are correct
+            match asset {
+                None => (),
+                Some(asset_id) => {
+                    let mut updated_emissions =
+                        self.co2_emissions.get(asset_id).unwrap_or(Vec::new());
+                    updated_emissions.extend_from_slice(emissions);
+                    self.ensure_emissions_not_unbounded(&updated_emissions)?;
+                }
+            }
+
+            // Ensure all CO2 Emissions items are correct.
             emissions.iter().try_for_each(|item| {
                 self.ensure_emissions_item_correct(item)?;
                 Ok(())
             })
         }
 
-        /// Ensure emissions are not empty
+        /// Ensure CO2 Emissions vec is not empty.
         fn ensure_emissions_not_empty(
             &self,
             emissions: &Vec<CO2Emissions>,
@@ -509,7 +565,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure length of emissions vec is not greater than `MAX_EMISSIONS_PER_ASSET`
+        /// Ensure length of CO2 Emissions vec is not greater than `MAX_EMISSIONS_PER_ASSET`.
         fn ensure_emissions_not_unbounded(
             &self,
             emissions: &Vec<CO2Emissions>,
@@ -520,6 +576,7 @@ mod asset_co2_emissions {
             Ok(())
         }
 
+        /// Ensure length of Data Source for CO2 Emission item is not greater than `MAX_DATA_SOURCE_LENGTH`.
         fn ensure_emissions_data_src_not_unbounded(
             &self,
             data_source: &DataSource,
@@ -530,7 +587,7 @@ mod asset_co2_emissions {
             Ok(())
         }
 
-        /// Ensure emissions item is correct
+        /// Ensure CO2 Emissions item is correct.
         fn ensure_emissions_item_correct(
             &self,
             item: &CO2Emissions,
@@ -540,7 +597,7 @@ mod asset_co2_emissions {
             Ok(())
         }
 
-        /// ensure emissions value is non-zero
+        /// Ensure CO2 Emissions item value is non-zero.
         fn ensure_emissions_item_not_zero(
             &self,
             emissions: &CO2Emissions,
@@ -551,7 +608,7 @@ mod asset_co2_emissions {
             }
         }
 
-        /// Ensure metadata does not exceed `MAX_METADATA_LENGTH`
+        /// Ensure metadata does not exceed `MAX_METADATA_LENGTH`.
         fn ensure_proper_metadata(
             &self,
             metadata: &Metadata,
@@ -562,19 +619,14 @@ mod asset_co2_emissions {
             Ok(())
         }
 
-        /// Save new emissions for asset and emit an event for each emission
-        fn save_new_co2_emissions(
-            &mut self,
-            id: &AssetId,
-            emissions: &[CO2Emissions],
-        ) -> Result<(), AssetCO2EmissionsError> {
+        /// Save new CO2 Emissions for Asset and emit an event for each emission item.
+        fn save_new_co2_emissions(&mut self, id: &AssetId, emissions: &[CO2Emissions]) {
             let mut updated_emissions = self.co2_emissions.get(id).unwrap_or(Vec::new());
             updated_emissions.extend_from_slice(emissions);
 
-            self.ensure_emissions_not_unbounded(&updated_emissions)?;
-
             self.co2_emissions.insert(id, &updated_emissions);
-            // emit an event for each emission
+
+            // emit an event for each emission item.
             emissions.iter().for_each(|emission| {
                 self.env().emit_event(Emission {
                     id: *id,
@@ -585,10 +637,9 @@ mod asset_co2_emissions {
                     value: emission.value,
                 })
             });
-            Ok(())
         }
 
-        /// Return the next id and increase by 1
+        /// Return the next id and increase by 1.
         fn next_id(&mut self) -> Result<AssetId, AssetCO2EmissionsError> {
             let asset_id = self.next_id;
             self.next_id = self
@@ -598,7 +649,7 @@ mod asset_co2_emissions {
             Ok(asset_id)
         }
 
-        /// Build asset tree from child to parent
+        /// Build Asset tree from child to parent.
         fn build_asset_tree(&self, id: AssetId) -> Vec<AssetDetails> {
             let mut asset_id = id;
             let mut tree_path: Vec<AssetDetails> = Vec::new();
@@ -647,7 +698,7 @@ mod asset_co2_emissions {
             let caller = self.env().caller();
 
             self.ensure_proper_metadata(&metadata)?;
-            self.ensure_emissions_correct(&emissions)?;
+            self.ensure_emissions_correct(None, &emissions)?;
             self.ensure_proper_parent(&parent, &caller)?;
 
             let asset_id: u128 = self.next_id()?;
@@ -667,8 +718,8 @@ mod asset_co2_emissions {
                 parent,
             });
 
-            // Save CO2 emissions & emit corresponding events
-            self.save_new_co2_emissions(&asset_id, &emissions)?;
+            // Save CO2 Emissions & emit corresponding events.
+            self.save_new_co2_emissions(&asset_id, &emissions);
 
             Ok(())
         }
@@ -685,7 +736,7 @@ mod asset_co2_emissions {
             self.ensure_exists(&id)?;
             self.ensure_owner(&id, &from)?;
             self.ensure_not_paused(&id)?;
-            self.ensure_emissions_correct(&emissions)?;
+            self.ensure_emissions_correct(Some(id), &emissions)?;
 
             self.remove_owned_asset(&from, &id)?;
             self.insert_owned_asset(&to, &id)?;
@@ -694,8 +745,8 @@ mod asset_co2_emissions {
 
             self.env().emit_event(Transfer { from, to, id });
 
-            // Save CO2 emissions & emit corresponding events
-            self.save_new_co2_emissions(&id, &emissions)?;
+            // Save CO2 Emissions & emit corresponding events.
+            self.save_new_co2_emissions(&id, &emissions);
 
             Ok(())
         }
@@ -725,10 +776,12 @@ mod asset_co2_emissions {
             self.ensure_exists(&id)?;
             self.ensure_owner(&id, &self.env().caller())?;
             self.ensure_not_paused(&id)?;
-            self.ensure_emissions_item_correct(&emissions)?;
 
-            // Save CO2 emissions & emit corresponding events
-            self.save_new_co2_emissions(&id, &Vec::from([emissions]))?;
+            let emissions: Vec<CO2Emissions> = Vec::from([emissions]);
+            self.ensure_emissions_correct(Some(id), &emissions)?;
+
+            // Save CO2 Emissions & emit corresponding events.
+            self.save_new_co2_emissions(&id, &emissions);
             Ok(())
         }
 
@@ -750,9 +803,9 @@ mod asset_co2_emissions {
         #[ink(message)]
         fn get_asset(&self, id: AssetId) -> Option<AssetDetails> {
             match self.get_metadata(id) {
-                // Asset does not exist, return None
+                // Asset does not exist, return None.
                 None => None,
-                // Asset must exist, fetch and unpack attributes
+                // Asset must exist, fetch and unpack attributes.
                 Some(metadata) => {
                     let emissions = self.get_asset_emissions(id).expect("Emissions must exist");
                     let parent = self
