@@ -1,7 +1,5 @@
 # Non-Fungible Assets with CO2 Emissions tracking.
 
-[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink) [![CI - Check Set-Up, Build & Test](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/paritytech/bcg-co2-passport/actions/workflows/ci.yml)
-
 This smart contract is for tracking carbon emissions of steel. It is written in [ink!](https://github.com/paritytech/ink), a Rust based smart contract language for Substrate based blockchains.
 
 -   [Non-Fungible Assets with CO2 Emissions tracking.](#non-fungible-assets-with-co2-emissions-tracking)
