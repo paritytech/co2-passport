@@ -1,8 +1,8 @@
-# Non-Fungible Assets with CO2 Emissions tracking.
+# Non-Fungible Assets For Tracking CO2 Emissions
 
 This smart contract is for tracking carbon emissions of steel. It is written in [ink!](https://github.com/paritytech/ink), a Rust based smart contract language for Substrate based blockchains.
 
--   [Non-Fungible Assets with CO2 Emissions tracking.](#non-fungible-assets-with-co2-emissions-tracking)
+-   [Non-Fungible Assets with CO2 Emissions tracking](#non-fungible-assets-with-co2-emissions-tracking)
     -   [Contract Overview](#contract-overview)
     -   [Local development setup](#local-development-setup)
         -   [Rust and Cargo](#rust-and-cargo)
@@ -33,14 +33,14 @@ This smart contract is for tracking carbon emissions of steel. It is written in 
 
 This contract supports the following operations:
 
--   Updating contract.
--   Blasting an Asset - creating a new Asset with the CO2 Emissions required.
--   Adding additional CO2 Emissions to an Asset.
--   Transferring an Asset to a different account. Additional C02 Emissions always added.
--   Pausing an Asset to prevent transferring or adding new CO2 Emissions. This is a prerequisite to splitting an Asset.
--   Splitting an Asset into child Assets. The common reasons is due to actions like steel cutting.
--   Querying details about an Asset.
--   Querying the full parent tree of a child Asset. This allows for calculating the total CO2 Emissions a child Asset has.
+-   Updating contract
+-   Blasting an Asset - creating a new Asset with the CO2 Emissions required
+-   Adding additional CO2 Emissions to an Asset
+-   Transferring an Asset to a different account. Additional C02 Emissions always added
+-   Pausing an Asset to prevent transferring or adding new CO2 Emissions. This is a prerequisite to splitting an Asset
+-   Splitting an Asset into child Assets. The common reasons is due to actions like steel cutting
+-   Querying details about an Asset
+-   Querying the full parent tree of a child Asset. This allows for calculating the total CO2 Emissions
 
 ## Local development setup
 
